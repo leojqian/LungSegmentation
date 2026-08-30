@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environment
+.venv/
+
+# OS
+.DS_Store
+
+# Editor/tool-local state
+.claude/
+.playwright-mcp/
+
+# Patient imaging datasets -- not for version control (size + privacy)
+SampleDDR_August2026/
+MontgomerySet/
+DDL videos/
+DDR_Chest Serial Erect PA_OR.mp4
+DDR_Chest Serial Erect PA_OR_processed.mp4
+
+# Model checkpoints -- large binaries, exceed GitHub's file-size limit
+*.h5
+
+# Generated/derived data and run outputs
+data/
+outputs/
+
+# Ad-hoc local screenshots from interactive testing
+apex_review_*.png
+orientation_check*.png
