@@ -1,0 +1,9 @@
+tensorflow==2.21.0
+keras==3.15.1
+numpy==2.4.6
+opencv-python==5.0.0.93
+pydicom==3.0.2
+defusedxml==0.7.1
+scikit-learn==1.9.0
+tqdm==4.70.0
+pytest==9.1.1

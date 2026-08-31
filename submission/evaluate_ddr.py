@@ -135,8 +135,11 @@ def summarize(dice_rows, apex_rows):
         "n_dice": len(dice_vals),
         "apex_mm_mean": float(np.mean(all_apex)) if all_apex else None,
         "apex_mm_median": float(np.median(all_apex)) if all_apex else None,
+        "apex_mm_std": float(np.std(all_apex)) if all_apex else None,
         "apex_mm_mean_R": float(np.mean(by_side["R"])) if by_side["R"] else None,
         "apex_mm_mean_L": float(np.mean(by_side["L"])) if by_side["L"] else None,
+        "apex_mm_std_R": float(np.std(by_side["R"])) if by_side["R"] else None,
+        "apex_mm_std_L": float(np.std(by_side["L"])) if by_side["L"] else None,
         "n_apex": len(all_apex),
     }
 
@@ -174,7 +177,7 @@ def main():
              f"(n={summary['n_dice']})")
         if summary["apex_mm_mean"] is not None:
             print(f"  {'':12s} apex error mean {summary['apex_mm_mean']:.1f}mm "
-                 f"median {summary['apex_mm_median']:.1f}mm "
+                 f"median {summary['apex_mm_median']:.1f}mm std {summary['apex_mm_std']:.1f}mm "
                  f"(R={summary['apex_mm_mean_R']:.1f}mm L={summary['apex_mm_mean_L']:.1f}mm, "
                  f"n={summary['n_apex']})")
         print()
@@ -183,7 +186,8 @@ def main():
     labels = list(summaries)
     print(f"{'metric':22s}" + "".join(f"{l:>14s}" for l in labels))
     for key, fmt in (("dice_mean", "{:.3f}"), ("dice_median", "{:.3f}"),
-                     ("apex_mm_mean", "{:.1f}"), ("apex_mm_median", "{:.1f}")):
+                     ("apex_mm_mean", "{:.1f}"), ("apex_mm_median", "{:.1f}"),
+                     ("apex_mm_std", "{:.1f}")):
         vals = [summaries[l][key] for l in labels]
         cells = "".join(f"{fmt.format(v) if v is not None else 'n/a':>14s}" for v in vals)
         print(f"{key:22s}{cells}")

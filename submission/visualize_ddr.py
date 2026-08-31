@@ -180,7 +180,8 @@ def main():
 # --- report page (viewer UI) --------------------------------------------------
 # Static HTML/CSS/JS shell; __FRAME_DATA__ is replaced with the JSON payload
 # built above. No model or metric logic here -- purely presentation.
-TEMPLATE = """<title>Diaphragm Point Review</title>
+TEMPLATE = """<meta charset="utf-8">
+<title>Diaphragm Point Review</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -340,7 +341,7 @@ TEMPLATE = """<title>Diaphragm Point Review</title>
   .bar-fill { height: 100%; border-radius: 4px 0 0 4px; }
   .bar-row .side-r .bar-fill { background: var(--side-r); }
   .bar-row .side-l .bar-fill { background: var(--side-l); }
-  .bar-row .num { font-family: var(--mono); font-variant-numeric: tabular-nums; width: 52px; text-align: right; color: var(--text-dim); }
+  .bar-row .num { font-family: var(--mono); font-variant-numeric: tabular-nums; width: 92px; text-align: right; color: var(--text-dim); }
 
   .legend { display: flex; flex-direction: column; gap: 7px; font-size: 12px; }
   .legend .row { display: flex; align-items: center; gap: 8px; }
@@ -485,6 +486,9 @@ TEMPLATE = """<title>Diaphragm Point Review</title>
         <tr><td>Point err median</td>
           <td style="text-align:right;padding:2px 6px" id="cmpApexMedBase">&mdash;</td>
           <td style="text-align:right;padding:2px 6px;color:var(--accent);font-weight:600" id="cmpApexMedFt">&mdash;</td></tr>
+        <tr><td>Point err std</td>
+          <td style="text-align:right;padding:2px 6px" id="cmpApexStdBase">&mdash;</td>
+          <td style="text-align:right;padding:2px 6px;color:var(--accent);font-weight:600" id="cmpApexStdFt">&mdash;</td></tr>
       </table>
       <div class="sub" style="margin:10px 0 0">Mean out-of-fold DDR Dice (5-fold cross-val, stricter estimate): <strong id="cmpOutOfFold">&mdash;</strong></div>
     </div>
@@ -577,13 +581,15 @@ function renderStats() {
   document.getElementById("cmpApexFt").textContent = ft.apex_mm_mean.toFixed(1) + "mm";
   document.getElementById("cmpApexMedBase").textContent = base.apex_mm_median.toFixed(1) + "mm";
   document.getElementById("cmpApexMedFt").textContent = ft.apex_mm_median.toFixed(1) + "mm";
+  document.getElementById("cmpApexStdBase").textContent = base.apex_mm_std.toFixed(1) + "mm";
+  document.getElementById("cmpApexStdFt").textContent = ft.apex_mm_std.toFixed(1) + "mm";
   document.getElementById("cmpOutOfFold").textContent = DATA.summary.outOfFoldDice.toFixed(3);
 
   const maxMm = Math.max(ft.apex_mm_mean_R, ft.apex_mm_mean_L);
   document.getElementById("barR").style.width = (100 * ft.apex_mm_mean_R / maxMm) + "%";
   document.getElementById("barL").style.width = (100 * ft.apex_mm_mean_L / maxMm) + "%";
-  document.getElementById("numR").textContent = ft.apex_mm_mean_R.toFixed(1) + "mm";
-  document.getElementById("numL").textContent = ft.apex_mm_mean_L.toFixed(1) + "mm";
+  document.getElementById("numR").textContent = ft.apex_mm_mean_R.toFixed(1) + " ± " + ft.apex_mm_std_R.toFixed(1) + "mm";
+  document.getElementById("numL").textContent = ft.apex_mm_mean_L.toFixed(1) + " ± " + ft.apex_mm_std_L.toFixed(1) + "mm";
 }
 
 function renderCaseSelect() {
