@@ -27,6 +27,7 @@ CLIFF_STEP = 8          # px/column jump that marks the cardiac border
 RISE_FRACTION = 0.20    # max climb above the costophrenic angle, as % lung height
 DOME_EXTEND = 0.35      # how far the fitted dome may reach past measured data
 APEX_TOLERANCE = 0.15   # how far past measured data a fitted apex is trusted
+FLAT_SAG = 1e-6         # px of sag across the span below which a fit is a straight line
 
 
 # --- mask preparation --------------------------------------------------------
@@ -204,8 +205,15 @@ def fit_dome(curve, x0, x1, min_points=10, max_extend=None):
         raise ValueError(f"need >= {min_points} points to fit a dome, got {len(curve)}")
 
     a, b, c = np.polyfit(curve[:, 0].astype(float), curve[:, 1].astype(float), 2)
-    if a <= 0:
-        raise ValueError("traced points do not describe a dome (fit opens downward)")
+    # Judged by sag across the span, not by a > 0 alone: a dead-straight line
+    # fits a = 0 plus ~1e-18 of float noise whose sign differs between
+    # platforms' LAPACK builds (Windows called one a dome; macOS didn't).
+    # FLAT_SAG sits far above that noise and far below any real curve: on 2319
+    # traced DDR curves the smallest positive sag was 0.04px, so no real
+    # result changes.
+    half_span = (curve[:, 0].max() - curve[:, 0].min()) / 2
+    if a * half_span ** 2 <= FLAT_SAG:
+        raise ValueError("traced points do not describe a dome (fit is flat or opens downward)")
 
     x0, x1 = int(x0), int(x1)
     if max_extend is not None:
