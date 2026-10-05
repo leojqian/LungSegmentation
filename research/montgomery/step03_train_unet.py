@@ -1,3 +1,9 @@
+# Step 3: train the U-Net on step 1's arrays.
+# Writes best_model.h5, the Montgomery base model that step 6 fine-tunes.
+#
+# Run from the repo root:
+#   uv run --extra research python research/montgomery/step03_train_unet.py
+
 import numpy as np
 
 #load data
@@ -17,7 +23,7 @@ Height = 256
 Width = 256
 
 import tensorflow as tf
-from Step2Model import build_model
+from step02_unet_model import build_model
 from keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 shape=(256, 256, 3)

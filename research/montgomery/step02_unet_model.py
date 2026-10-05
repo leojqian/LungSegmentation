@@ -1,4 +1,5 @@
-import tensorflow as tf
+# Step 2: the U-Net architecture (build_model). Imported by step 3; not run directly.
+
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 

@@ -1,6 +1,6 @@
 # End-to-end tests for the `lungmap` command: a synthetic multi-frame DICOM in,
 # the points CSV + overlay DICOM + MP4 out. The U-Net is replaced by FakeModel
-# (monkeypatched over cli.load_model) so no TensorFlow or weights are needed.
+# (monkeypatched over model_file.load_model) so no TensorFlow or weights are needed.
 
 import csv
 import os
@@ -14,7 +14,7 @@ import pydicom
 import pytest
 
 from fakes import FakeModel, write_dicom
-from lungmap import cli, model
+from lungmap import cli, model_file
 from lungmap.points import CSV_COLUMNS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -30,17 +30,17 @@ def dicom(tmp_path):
 
 
 @pytest.fixture
-def model_file(tmp_path, monkeypatch):
+def fake_weights(tmp_path, monkeypatch):
     path = tmp_path / "model.h5"
     path.write_bytes(b"not really a model")
-    monkeypatch.setattr(cli, "load_model", lambda p: FakeModel())
+    monkeypatch.setattr(model_file, "load_model", lambda p: FakeModel())
     return path
 
 
 @pytest.fixture
-def run(dicom, model_file, tmp_path):
+def run(dicom, fake_weights, tmp_path):
     out = tmp_path / "out"
-    code = cli.main([str(dicom), "-o", str(out), "--model", str(model_file)])
+    code = cli.main([str(dicom), "-o", str(out), "--model", str(fake_weights)])
     return code, out
 
 
@@ -80,24 +80,24 @@ class TestOutputs:
         assert int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) == N_FRAMES
         cap.release()
 
-    def test_prints_the_naive_vs_algorithm_comparison(self, dicom, model_file, tmp_path, capsys):
-        cli.main([str(dicom), "-o", str(tmp_path / "o"), "--model", str(model_file)])
+    def test_prints_the_naive_vs_algorithm_comparison(self, dicom, fake_weights, tmp_path, capsys):
+        cli.main([str(dicom), "-o", str(tmp_path / "o"), "--model", str(fake_weights)])
         printed = capsys.readouterr().out
         assert "naive" in printed and "R:" in printed and "L:" in printed
         printed.encode("ascii")   # legacy Windows consoles can't print anything else
 
 
 class TestErrors:
-    def test_missing_input_exits_2(self, model_file, tmp_path):
+    def test_missing_input_exits_2(self, fake_weights, tmp_path):
         with pytest.raises(SystemExit) as e:
-            cli.main([str(tmp_path / "nope.dcm"), "--model", str(model_file)])
+            cli.main([str(tmp_path / "nope.dcm"), "--model", str(fake_weights)])
         assert e.value.code == 2
 
-    def test_non_dicom_input_exits_2(self, model_file, tmp_path):
+    def test_non_dicom_input_exits_2(self, fake_weights, tmp_path):
         bogus = tmp_path / "notes.dcm"
         bogus.write_text("hello")
         with pytest.raises(SystemExit) as e:
-            cli.main([str(bogus), "--model", str(model_file)])
+            cli.main([str(bogus), "--model", str(fake_weights)])
         assert e.value.code == 2
 
     def test_explicit_model_path_that_does_not_exist_exits_2(self, dicom, tmp_path):
@@ -107,14 +107,14 @@ class TestErrors:
 
     def test_failed_model_download_exits_1_with_a_message(self, dicom, tmp_path, monkeypatch,
                                                           capsys):
-        monkeypatch.delenv(model.MODEL_ENV, raising=False)
+        monkeypatch.delenv(model_file.MODEL_ENV, raising=False)
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(model, "data_dir", lambda: tmp_path / "cache")
-        monkeypatch.setenv(model.URL_ENV, (tmp_path / "no_such_release.h5").as_uri())
+        monkeypatch.setattr(model_file, "data_dir", lambda: tmp_path / "cache")
+        monkeypatch.setenv(model_file.URL_ENV, (tmp_path / "no_such_release.h5").as_uri())
         assert cli.main([str(dicom)]) == 1
         assert "could not download" in capsys.readouterr().err
 
-    def test_one_bad_file_does_not_stop_the_others(self, dicom, model_file, tmp_path,
+    def test_one_bad_file_does_not_stop_the_others(self, dicom, fake_weights, tmp_path,
                                                    monkeypatch):
         second = tmp_path / "second.dcm"
         second.write_bytes(dicom.read_bytes())
@@ -127,18 +127,18 @@ class TestErrors:
 
         monkeypatch.setattr(cli, "process_dicom", flaky)
         out = tmp_path / "out"
-        assert cli.main([str(dicom), str(second), "-o", str(out), "--model", str(model_file)]) == 1
+        assert cli.main([str(dicom), str(second), "-o", str(out), "--model", str(fake_weights)]) == 1
         assert (out / "second_points.csv").exists()
 
 
 class TestInputs:
     """What your dad will actually do: drop a folder, or use a wildcard on Windows."""
 
-    def test_default_output_goes_next_to_the_input(self, dicom, model_file):
-        assert cli.main([str(dicom), "--model", str(model_file)]) == 0
+    def test_default_output_goes_next_to_the_input(self, dicom, fake_weights):
+        assert cli.main([str(dicom), "--model", str(fake_weights)]) == 0
         assert (dicom.parent / cli.OUT_DIR_NAME / "case one_points.csv").exists()
 
-    def test_a_folder_processes_every_dicom_inside_it(self, dicom, model_file, tmp_path):
+    def test_a_folder_processes_every_dicom_inside_it(self, dicom, fake_weights, tmp_path):
         folder = tmp_path / "scans"
         folder.mkdir()
         for name in ("a.dcm", "b"):                          # DICOMs need no extension
@@ -146,31 +146,31 @@ class TestInputs:
         (folder / "notes.txt").write_text("not a scan")
         (folder / "old_overlay.dcm").write_bytes(dicom.read_bytes())   # our own output
         out = tmp_path / "out"
-        assert cli.main([str(folder), "-o", str(out), "--model", str(model_file)]) == 0
+        assert cli.main([str(folder), "-o", str(out), "--model", str(fake_weights)]) == 0
         assert sorted(p.name for p in out.glob("*_points.csv")) == ["a_points.csv",
                                                                      "b_points.csv"]
 
-    def test_wildcards_are_expanded_even_when_the_shell_does_not(self, dicom, model_file,
+    def test_wildcards_are_expanded_even_when_the_shell_does_not(self, dicom, fake_weights,
                                                                  tmp_path):
         out = tmp_path / "out"
         pattern = str(dicom.parent / "*.dcm")                # passed literally, as on Windows
-        assert cli.main([pattern, "-o", str(out), "--model", str(model_file)]) == 0
+        assert cli.main([pattern, "-o", str(out), "--model", str(fake_weights)]) == 0
         assert (out / "case one_points.csv").exists()
 
-    def test_folder_without_dicoms_exits_2(self, model_file, tmp_path):
+    def test_folder_without_dicoms_exits_2(self, fake_weights, tmp_path):
         empty = tmp_path / "empty"
         empty.mkdir()
         with pytest.raises(SystemExit) as e:
-            cli.main([str(empty), "--model", str(model_file)])
+            cli.main([str(empty), "--model", str(fake_weights)])
         assert e.value.code == 2
 
-    def test_open_shows_each_output_folder_once(self, dicom, model_file, tmp_path,
+    def test_open_shows_each_output_folder_once(self, dicom, fake_weights, tmp_path,
                                                 monkeypatch):
         opened = []
         monkeypatch.setattr(cli, "open_folder", opened.append)
         second = dicom.parent / "second.dcm"
         second.write_bytes(dicom.read_bytes())
-        cli.main([str(dicom), str(second), "--open", "--model", str(model_file)])
+        cli.main([str(dicom), str(second), "--open", "--model", str(fake_weights)])
         assert opened == [dicom.parent / cli.OUT_DIR_NAME]
 
 

@@ -1,7 +1,6 @@
-# One entry point: any supported lung image in, segmented masks + diaphragm
-# curves + landmark points out. Ties together format-specific loading
-# (dicom_io.py), the U-Net (segmentation), and the pure geometry
-# (diaphragm.py/landmarks.py) that Step4/5/6 previously each reimplemented.
+# Image -> lung masks -> measurements. Ties together loading (formats/), the
+# U-Net, and the geometry (geometry/): segment() runs the model, the measure_*
+# functions trace each lung, and analyze()/analyze_frame() do both.
 
 import os
 from collections import namedtuple
@@ -15,13 +14,10 @@ from lungmap.formats.dicom_io import load_frames, to_model_input, window_params
 from lungmap.geometry.landmarks import contour_of
 
 MODEL_SIZE = 256
-OPEN_KERNEL = 21    # calibrated 2026-08-24 against the DDR set — see the Phase 1
-                    # addendum in docs/superpowers/specs/2026-08-24-ddr-domain-
-                    # adaptation-design.md. Wins on 18/20 DDR cases but the gain
-                    # is small (Dice +0.002); does not change Montgomery, where
-                    # kernel choice was already shown not to matter (see the
-                    # baseline pipeline-parity check in the same doc).
-CLIFF_FACTOR = 3    # matches the factor cliff_step_for was tuned with in Step4/5/6
+OPEN_KERNEL = 21    # mask-cleanup kernel for the Montgomery base model, calibrated on
+                    # DDR (docs/design/2026-08-24-ddr-domain-adaptation.md). The
+                    # shipped fine-tuned model uses 5: see lungmap/process.py.
+CLIFF_FACTOR = 3    # the factor cliff_step_for was tuned with
 
 #: one segmented+measured image. masks/lungs/curves are keyed "R"/"L" (R = the
 #: image-left lung, this codebase's convention for a PA film's patient-right
@@ -60,9 +56,9 @@ def segment(image, model, open_kernel=OPEN_KERNEL):
     """Normalized image -> binary lung mask uint8, at the image's own resolution.
 
     Resizes down to the model's input size for prediction, then upscales the
-    soft probabilities (not the threshold) back up before thresholding — see
-    Step4's own note on why: thresholding at 256 first locks the boundary onto
-    that grid and turns every mask pixel into a many-pixel staircase.
+    soft probabilities (not the threshold) back up before thresholding:
+    thresholding at 256 first would lock the boundary onto that grid and turn
+    every mask pixel into a many-pixel staircase.
     """
     small = cv2.resize(image, (MODEL_SIZE, MODEL_SIZE))
     small = np.repeat(small[..., None], 3, axis=-1)
@@ -91,9 +87,8 @@ def _keep_largest_components(mask, n):
 def measure_masks(masks, max_rise_frac=RISE_FRACTION, max_step=CLIFF_STEP):
     """{"R": mask, "L": mask} -> (lungs, curves), both keyed the same way.
 
-    The no-model tail of analyze_frame, split out so callers who already have
-    per-side masks in hand — Step5's manual-mask path never runs the U-Net —
-    can reuse the same landmark/diaphragm logic instead of reimplementing it.
+    The no-model half of analyze_frame, for callers that already have
+    per-side masks (e.g. hand-drawn ones).
 
     Each side is measured independently: a mask too degenerate to trace (too
     few columns, empty after component selection) maps that side to None
@@ -117,8 +112,7 @@ def measure_combined(mask, max_rise_frac=RISE_FRACTION, cliff_factor=CLIFF_FACTO
 
     analyze_frame's measuring step, minus its raise: when the mask doesn't hold
     two lungs, all three come back as {} so a caller looping over frames still
-    has that frame's mask to show. Same no-raise contract as
-    Step6ValidateDDR._measure_from_mask and evaluate_ddr.predicted_lungs.
+    has that frame's mask to show.
     """
     try:
         masks = dict(zip(["R", "L"], split_lungs(mask)))
@@ -156,9 +150,7 @@ def analyze(path, model, frame=None, open_kernel=OPEN_KERNEL,
     """One image, any supported format -> LungAnalysis.
 
     path: image file. `.dcm` files are multi-frame; pass `frame` to pick which
-    frame (default 0). Other formats (png/jpg/...) are single images. This is
-    the one entry point for "segment, map the diaphragm, and get the landmark
-    points" — Step4/5/6 all call this rather than reimplementing the pipeline.
+    frame (default 0). Other formats (png/jpg/...) are single images.
     """
     image, spacing_mm = load_image(path, frame, window)
     return analyze_frame(image, model, open_kernel, max_rise_frac, cliff_factor, spacing_mm)

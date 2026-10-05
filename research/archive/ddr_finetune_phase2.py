@@ -1,3 +1,7 @@
+# ARCHIVED -- not part of the lungmap package, and not used to build the shipped
+# model (that's research/ddr). Kept as the record behind the numbers in
+# docs/design/2026-08-24-ddr-domain-adaptation.md. Run from the repo root.
+#
 # Phase 2 fine-tuning for the DDR domain-adaptation spec
 # (docs/superpowers/specs/2026-08-24-ddr-domain-adaptation-design.md).
 #
@@ -15,7 +19,7 @@
 # reported explicitly, not hidden.
 #
 # Reads Phase 1's winning preprocessing (windowing/kernel/image source) from
-# outputs/ddr_calibration/findings.json — run Step7CalibrateDDR.py first.
+# outputs/ddr_calibration/findings.json — run ddr_calibrate_preprocessing.py first.
 
 import argparse
 import csv
@@ -27,8 +31,8 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import KFold
 
-import Step6ValidateDDR as step6
-import Step7CalibrateDDR as step7
+import ddr_calibrate_preprocessing as step7
+import ddr_validate as step6
 
 OUT_DIR = "outputs/ddr"
 CALIBRATION_FILE = "outputs/ddr_calibration/findings.json"
@@ -56,7 +60,7 @@ FIELDNAMES = step6.FIELDNAMES + ["fold", "checkpoint_epoch", "checkpoint_montgom
 
 def load_calibration():
     if not os.path.exists(CALIBRATION_FILE):
-        raise SystemExit(f"{CALIBRATION_FILE} not found — run Step7CalibrateDDR.py first")
+        raise SystemExit(f"{CALIBRATION_FILE} not found — run ddr_calibrate_preprocessing.py first")
     with open(CALIBRATION_FILE) as f:
         winner = json.load(f)["winner"]
     return winner["window"], winner["kernel"], winner["source_raw"]

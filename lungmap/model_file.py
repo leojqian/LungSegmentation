@@ -1,10 +1,10 @@
-# Finding the U-Net checkpoint, and fetching it on first use.
+# The U-Net weights file: find it, download it on first use, load it.
 #
-# The checkpoint (~126MB) is too big for git, so it ships as a GitHub release
-# asset and is downloaded once into a per-user folder. It is the fine-tuned
-# DDR model saved without its optimizer state: identical predictions, half the
-# size of best_model_ddr_finetuned_phase3.h5. No TensorFlow here — loading
-# the file is cli.load_model's job.
+# The file (~126MB) is too big for git, so it ships as a GitHub release asset
+# and is downloaded once into a per-user folder. It is the fine-tuned DDR model
+# (best_model_ddr_finetuned_phase3.h5) saved without its optimizer state:
+# identical predictions at half the size. TensorFlow is imported only inside
+# load_model, so finding/downloading stays fast.
 
 import hashlib
 import os
@@ -24,6 +24,19 @@ MODEL_SHA256 = "0e98c09089709c3a525e4407305edba8cba0d691c59cc1dc84885a78acdb88bf
 LEGACY_NAME = "best_model_ddr_finetuned_phase3.h5"   # the research checkout's own copy
 MODEL_ENV = "LUNGMAP_MODEL"
 URL_ENV = "LUNGMAP_MODEL_URL"                         # a mirror, or a local copy in tests
+
+
+def load_model(path):
+    """Weights file -> Keras model, ready to predict."""
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")   # hide TF's C++ startup chatter
+    try:
+        import tensorflow as tf
+    except ImportError as e:
+        hint = ("\nOn Windows this usually means the Microsoft Visual C++ Redistributable "
+                "is missing; install it from https://aka.ms/vs/17/release/vc_redist.x64.exe "
+                "and run lungmap again." if sys.platform == "win32" else "")
+        raise SystemExit(f"lungmap: error: could not load TensorFlow ({e}).{hint}") from e
+    return tf.keras.models.load_model(str(path), compile=False)   # inference only
 
 
 class ModelError(Exception):

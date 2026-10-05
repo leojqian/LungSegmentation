@@ -168,7 +168,7 @@ class TestAnalyze:
 
 class TestAnalyzeFrame:
     """analyze() = load_image() + analyze_frame(); this is the building block
-    for callers with frames already in memory (Step6's multi-frame DICOM loop)."""
+    for callers with frames already in memory (e.g. looping over a multi-frame DICOM)."""
 
     def test_matches_analyze_on_the_same_image(self, tmp_path):
         result = analyze(TestAnalyze().png_path(tmp_path), FakeModel())
@@ -190,7 +190,7 @@ def lung_mask(shape=(400, 400), cx=100, cy=200):
 
 class TestMeasureMasks:
     """The no-model tail of analyze_frame — for callers with masks already in
-    hand (e.g. Step5's manual-mask path, which never runs the U-Net)."""
+    hand (e.g. hand-drawn masks, with no U-Net involved)."""
 
     def test_returns_lungs_and_curves_keyed_by_side(self):
         masks = {"R": lung_mask(cx=100), "L": lung_mask(cx=300)}

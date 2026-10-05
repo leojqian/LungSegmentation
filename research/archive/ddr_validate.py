@@ -1,12 +1,16 @@
+# ARCHIVED -- not part of the lungmap package, and not used to build the shipped
+# model (that's research/ddr). Kept as the record behind the numbers in
+# docs/design/2026-08-24-ddr-domain-adaptation.md. Run from the repo root.
+#
 # Validate the Montgomery-trained U-Net + diaphragm geometry against the DDR
 # dataset (SampleDDR_August2026): real ground truth for both lung area and
 # diaphragm position, which this project never had before.
 #
-#   python Step6ValidateDDR.py                 all cases -> outputs/ddr/
-#   python Step6ValidateDDR.py --sample NAME    one case, e.g. KaU001_PA_deep
-#   python Step6ValidateDDR.py --limit 3        first N cases
-#   python Step6ValidateDDR.py --no-overlays    skip the spot-check PNGs
-#   python Step6ValidateDDR.py --from-truth     score apex_of() alone: feed it
+#   python research/archive/ddr_validate.py                 all cases -> outputs/ddr/
+#   python research/archive/ddr_validate.py --sample NAME    one case, e.g. KaU001_PA_deep
+#   python research/archive/ddr_validate.py --limit 3        first N cases
+#   python research/archive/ddr_validate.py --no-overlays    skip the spot-check PNGs
+#   python research/archive/ddr_validate.py --from-truth     score apex_of() alone: feed it
 #                                                LungArea_truth instead of a
 #                                                U-Net mask, isolating the
 #                                                geometry algorithm's own error

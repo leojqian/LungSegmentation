@@ -1,3 +1,7 @@
+# ARCHIVED -- not part of the lungmap package, and not used to build the shipped
+# model (that's research/ddr). Kept as the record behind the numbers in
+# docs/design/2026-08-24-ddr-domain-adaptation.md. Run from the repo root.
+#
 # Phase 1 preprocessing calibration for the DDR domain-adaptation spec
 # (docs/superpowers/specs/2026-08-24-ddr-domain-adaptation-design.md).
 #
@@ -7,7 +11,7 @@
 # constants, the same way CLIFF_STEP/RISE_FRACTION were tuned in
 # docs/superpowers/specs/2026-08-15-diaphragm-mapping-design.md.
 #
-# Reuses Step6ValidateDDR.py's scoring wholesale rather than reimplementing it.
+# Reuses ddr_validate.py's scoring wholesale rather than reimplementing it.
 
 import argparse
 import json
@@ -16,7 +20,7 @@ import os
 import cv2
 import numpy as np
 
-import Step6ValidateDDR as step6
+import ddr_validate as step6
 
 OUT_DIR = "outputs/ddr_calibration"
 KERNEL_CANDIDATES = [5, 9, 15, 21]

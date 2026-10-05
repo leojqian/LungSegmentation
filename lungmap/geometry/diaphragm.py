@@ -6,7 +6,7 @@
 # work here is deciding which parts to discard.
 #
 # Rationale and measurements for every threshold live in
-# docs/superpowers/specs/2026-08-15-diaphragm-mapping-design.md
+# docs/design/2026-08-15-diaphragm-mapping.md
 
 from collections import namedtuple
 

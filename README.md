@@ -1,116 +1,104 @@
 # lungmap
 
 Finds the lungs on every frame of a chest X-ray DICOM and marks, for each lung,
-the apex, the diaphragm point and the two bottom corners. You get a spreadsheet
-of those points plus a video and a DICOM of the scan with everything drawn on.
+the **apex**, the **diaphragm point** and the **two bottom corners**. You get a
+spreadsheet of those points, plus a video and a DICOM of the scan with
+everything drawn on.
 
-## Quick start (Windows)
+## Use it on Windows
 
-1. On this page, click the green **Code** button, then **Download ZIP**.
-2. Open the downloaded ZIP, and drag the folder inside it somewhere permanent,
-   such as your Documents folder.
-3. In that folder, double-click **`lungmap.bat`**. Or drag a DICOM file, or a
-   whole folder of them, onto `lungmap.bat`.
+1. Click the green **Code** button above, then **Download ZIP**. Unzip it
+   somewhere permanent, such as Documents.
+2. Drag a DICOM file, or a folder of them, onto **`lungmap.bat`**. Or
+   double-click it and drag the scan into the window that opens.
    - If a blue "Windows protected your PC" box appears, click **More info**,
      then **Run anyway**.
-   - If you double-clicked, a black window asks for a scan. Drag a DICOM file
-     or folder into that window and press **Enter**.
-4. **The first run takes several minutes.** It downloads Python, the libraries
-   and the model, about 1.5 GB in all. Later runs start in seconds.
-5. When it finishes, the results folder opens by itself. It is called
-   `lungmap_output` and sits next to your scan. Press any key to close the
-   black window.
+3. The first run takes a few minutes, because it downloads about 1.5 GB of
+   setup. Later runs start in seconds.
+4. When it's done, the `lungmap_output` folder next to your scan opens by
+   itself.
 
-## Quick start (Mac, Apple silicon)
+## Use it on a Mac (Apple silicon)
 
-Same as Windows, but double-click **`lungmap.command`** instead.
-
-- The very first time, macOS may refuse to open it. Open **System Settings >
-  Privacy & Security**, scroll down, and click **Open Anyway**.
-- To give it a scan, drag the file or folder into the window it opens and
-  press **Return**.
+Same as Windows, but use **`lungmap.command`**. If macOS blocks it the first
+time, go to **System Settings > Privacy & Security** and click **Open Anyway**.
 
 ## What you get
 
-For each scan `<name>.dcm`, the `lungmap_output` folder gets three files:
-
-| file | what it is |
+| file | contents |
 |---|---|
-| `<name>_points.csv` | Opens in Excel. One row per frame, with the 8 points as pixel coordinates. |
-| `<name>_overlay.mp4` | A video of the scan with lung outlines and points drawn on. |
-| `<name>_overlay.dcm` | The same as a DICOM, for a DICOM viewer. It is filed under the same patient and study as the original. |
+| `<scan>_points.csv` | One row per frame: the 8 points as pixel x, y. Opens in Excel. |
+| `<scan>_overlay.mp4` | Video of the scan with lung outlines and points drawn on. |
+| `<scan>_overlay.dcm` | The same as a DICOM, filed under the original patient and study. |
 
-### The 8 points
-
-For each lung (`R` is the lung on the image's left, which is the patient's
-right on a front-facing film; `L` is the other one):
+**The points.** Each lung has 4 points: `R` is the lung on the image's left (the
+patient's right) and `L` is the other.
 
 | point | meaning |
 |---|---|
-| `apex` | the top of the lung |
-| `diaphragm` | the diaphragm point: the horizontal middle of the traced diaphragm curve (the DDR dataset's own definition) |
-| `lower_left`, `lower_right` | the lung's two bottom corners (the costophrenic and cardiophrenic angles) |
+| `apex` | top of the lung |
+| `diaphragm` | middle of the traced diaphragm curve (the DDR dataset's definition) |
+| `lower_left`, `lower_right` | the lung's bottom corners |
 
-The CSV columns are `frame`, then `R_apex_x, R_apex_y, R_diaphragm_x, ...,
-L_lower_right_y` (17 in all). Coordinates are pixels, counted from the top-left
-of the image after its stored left-right flip is applied. The overlay files use
-the same pixel grid. A point that couldn't be measured on a frame is left blank.
+Coordinates are pixels from the top-left of the image (after the scan's stored
+left-right flip). A blank cell means that point couldn't be found on that
+frame.
 
-### Naive baseline
+**Naive comparison.** The midpoint of each lung's two bottom corners is a
+simple guess at the diaphragm point. The overlay draws it as a hollow circle
+beside the real one (filled), and the window prints how far apart they are on
+average.
 
-The midpoint of each lung's two bottom corners is a naive guess at the
-diaphragm point, with no curve tracing or fitting. The overlay shows it as a
-hollow circle next to the real diaphragm point (filled). At the end of each
-scan, the window prints how far apart the two are on average, per side, in
-pixels and mm.
+## If something goes wrong
 
-## Troubleshooting
+| message | fix |
+|---|---|
+| "could not load TensorFlow" (Windows) | Install the [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), then run again. |
+| "could not download the model" | Check the internet connection and run again. |
+| Error writing the video (Windows) | Use a folder whose name has only plain English letters. |
+| Anything else | Delete `%LOCALAPPDATA%\lungmap` (Windows) or `~/Library/Application Support/lungmap` (Mac), then run again to reinstall. |
 
-- **"could not load TensorFlow" on Windows:** install the [Microsoft Visual C++
-  Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), then run
-  again.
-- **"could not download the model":** check the internet connection and run
-  again. The download starts over, and a broken download is never kept.
-- **Output folder names on Windows** must be plain English letters. OpenCV
-  can't write the video into folders with accented or non-Latin characters.
-- **Starting over:** delete `%LOCALAPPDATA%\lungmap` on Windows, or
-  `~/Library/Application Support/lungmap` on Mac. The next run reinstalls.
+## What's in this repository
 
-## Command line
+| path | what it is | in the package? |
+|---|---|---|
+| `lungmap.bat`, `lungmap.command` | double-click launchers (Windows, Mac) | runs it |
+| `lungmap/` | **the lungmap package**: everything the tool runs | **yes** |
+| `tests/` | tests for `lungmap/` | no |
+| `research/` | the scripts that trained and evaluated the model ([research/README.md](research/README.md)) | no |
+| `docs/design/` | design notes behind the algorithm and the fine-tuning | no |
 
-The launchers run the `lungmap` command, which you can also use directly:
+Inside `lungmap/`:
 
-```bash
-pip install .                      # or: uv tool install .
-lungmap scan.dcm                   # files, folders, or wildcards like *.dcm
-lungmap scans/ -o results --open   # choose the output folder; open it when done
-```
+| module | job |
+|---|---|
+| `cli.py` | the `lungmap` command: inputs, outputs, messages |
+| `process.py` | one DICOM → points CSV + overlay DICOM + MP4 |
+| `points.py` | the 8 output points, the naive midpoint, the CSV layout |
+| `model_file.py` | find, download (first run) and load the U-Net weights |
+| `segmentation/pipeline.py` | image → lung masks → measurements |
+| `geometry/` | lung mask → diaphragm curve (`diaphragm.py`), apex and corners (`landmarks.py`) |
+| `formats/` | read and write DICOM (`dicom_io.py`); write MP4 (`video.py`) |
+| `rendering/render.py` | drawing the overlays |
 
-`lungmap` finds the model in this order:
-1. `--model PATH`
-2. the `LUNGMAP_MODEL` environment variable
-3. `best_model_ddr_finetuned_phase3.h5` in the current folder
-4. a copy downloaded on an earlier run
-
-If none of those exist, it downloads the model (~126MB, checksum-verified) from
-this repo's `model-v1` release into a per-user folder. Python 3.11 to 3.13 is
-required, on Windows x86-64 or Apple-silicon Macs. TensorFlow 2.21 has no build
-for Intel Macs.
-
-## Limits
-
-- Upright, front-facing (PA) chest films only. The diaphragm tracing assumes
-  that view.
-- The model was fine-tuned on 20 DDR cases. Treat the points as a research
-  measurement, not a clinical one.
-
-## Development
+## For developers
 
 ```bash
-uv run --extra dev pytest          # or: pip install -e ".[dev]" && pytest
+uv run lungmap scan.dcm                # files, folders or *.dcm; -o DIR, --open, --model PATH
+uv run --extra dev pytest              # tests
 ```
 
-The library lives in `lungmap/` (`geometry/`, `formats/`, `segmentation/`,
-`rendering/`, plus `points.py`, `process.py`, `model.py` and `cli.py`). The
-`Step*.py` and `submission/` scripts are the research and training pipeline that
-produced the model; run them from the repo root.
+`pip install .` also works and installs only `lungmap/`. It needs Python 3.11
+to 3.13 on Windows x86-64 or an Apple-silicon Mac. The model is looked up in
+this order:
+1. `--model`
+2. `$LUNGMAP_MODEL`
+3. `./best_model_ddr_finetuned_phase3.h5`
+4. a previous download
+
+If none is found, it's downloaded from the `model-v1` release with its
+checksum verified.
+
+**Limits:** upright, front-facing (PA) chest films only. The model was
+fine-tuned on 20 DDR cases, so treat the points as a research measurement, not
+a clinical one.

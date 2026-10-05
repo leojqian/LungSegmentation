@@ -1,4 +1,4 @@
-# Tests for model.py — finding the U-Net checkpoint, and fetching it on first
+# Tests for model_file.py — finding the U-Net checkpoint, and fetching it on first
 # use. Downloads use file:// URLs, so no network is touched.
 
 import hashlib
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lungmap import model as m
+from lungmap import model_file as m
 
 
 @pytest.fixture

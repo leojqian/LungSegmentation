@@ -1,9 +1,6 @@
 # Tests for dicom_io.py — reading DDR multi-frame DICOMs and the two ground-truth
 # formats that ship alongside them (SampleDDR_August2026).
 
-import os
-import tempfile
-
 import numpy as np
 import pydicom
 import pytest

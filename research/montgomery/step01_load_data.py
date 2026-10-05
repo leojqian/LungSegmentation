@@ -1,5 +1,12 @@
-# Dataset name: Academic Montgomery County X-ray Set
+# Step 1: turn the Montgomery County chest X-ray set into training arrays.
+#
+# Reads MontgomerySet/CXR_png and ManualMask/{left,right}Mask, resizes to 256x256,
+# merges both lungs into one mask, and splits train/validate.
+# Writes data/Unet-{Train,Validate}-Lung-{Images,Masks}.npy.
 # Dataset: https://academictorrents.com/details/ac786f74878a5775c81d490b23842fd4736bfe33
+#
+# Run from the repo root:
+#   uv run --extra research python research/montgomery/step01_load_data.py
 
 import os
 import cv2

@@ -1,10 +1,9 @@
-# One DICOM through the whole pipeline: every frame is segmented, measured,
-# reduced to the 8 output points, and drawn — streamed straight into the three
-# output files so no full-size colour stack is ever held in memory.
+# One DICOM -> <name>_points.csv, <name>_overlay.dcm, <name>_overlay.mp4.
 #
-# Orchestration only. Every step is an existing building block: loading and
-# writing in formats/, segmentation and measuring in segmentation/pipeline.py,
-# the points in points.py, drawing in rendering/render.py.
+# Each frame is segmented, measured, reduced to the 8 output points and drawn,
+# then streamed straight into the three files (no full-size colour stack is
+# held in memory). Orchestration only: the steps live in segmentation/,
+# points.py, rendering/ and formats/.
 
 import csv
 from collections import namedtuple
@@ -19,10 +18,10 @@ from lungmap.points import CSV_COLUMNS, SIDES, compare, csv_row, side_points
 from lungmap.rendering.render import draw_frame_points
 from lungmap.segmentation.pipeline import measure_combined, segment
 
-# The fine-tuned model's evaluated setup (submission/evaluate_ddr.py): opening
-# kernel 5 (finetune_ddr.MASK_OPEN_KERNEL, not pipeline.OPEN_KERNEL) and
-# per-frame min/max normalization rather than the DICOM window tags.
-OPEN_KERNEL = 5
+# How the shipped model was fine-tuned and evaluated (research/ddr/step06, step07):
+# mask-cleanup kernel 5, not the base model's pipeline.OPEN_KERNEL, and per-frame
+# min/max normalization rather than the DICOM window tags.
+FINETUNED_OPEN_KERNEL = 5
 
 #: comparison is points.compare's {side: {"n", "mean_px", "median_px"}};
 #: incomplete counts frames where some point on some side couldn't be measured
@@ -59,7 +58,7 @@ def process_dicom(dcm_path, model, out_dir, progress=True):
         for i, raw in enumerate(tqdm(frames, desc=dcm_path.name, unit="frame",
                                      disable=not progress)):
             image = to_model_input(raw, photometric)
-            masks, lungs, curves = measure_combined(segment(image, model, OPEN_KERNEL))
+            masks, lungs, curves = measure_combined(segment(image, model, FINETUNED_OPEN_KERNEL))
             points = {side: side_points(lungs.get(side), curves.get(side)) for side in SIDES}
 
             writer.writerow(csv_row(i, points))

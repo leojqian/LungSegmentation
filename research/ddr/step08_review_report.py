@@ -1,61 +1,38 @@
-# Visualizes every DDR frame -- all 20 cases, every frame with either a
-# LungArea_truth mask or a DM-MODE_truth diaphragm annotation (119 frames
-# total) -- with the fine-tuned model's predicted lung mask and diaphragm
-# point drawn over the ground truth, alongside the accuracy summary
-# evaluate_ddr.py already computed. This is the exact code that produced the
-# published "Diaphragm Point Review" artifact; running it regenerates the
-# same self-contained HTML report.
+# Step 8: build the "Diaphragm Point Review" HTML report: every annotated DDR
+# frame (119, across 20 cases) with the fine-tuned model's mask and diaphragm
+# point drawn over the ground truth, plus step 7's accuracy summary. Uses the
+# same lungmap functions as step 7, so both report the same points.
 #
-# Diaphragm point definition matches evaluate_ddr.py exactly -- the
-# predicted-point and truth-point logic here is not reimplemented, it is
-# imported from evaluate_ddr.py (predicted_lungs, segment) so the two files
-# can never drift apart: the dataset's own "center x-coordinate" convention
-# (see lungmap/formats/dicom_io.py's parse_dm_mode_truth and lungmap/geometry/diaphragm.py's
-# center_of), for both the truth point and the predicted point.
-#
-# Orientation: all image/mask/point loading goes through lungmap/formats/dicom_io.py,
-# which applies the DICOM's Field of View Horizontal Flip and the matching
-# DM-MODE_truth point correction -- see that module for the full explanation.
-#
-# Run (after evaluate_ddr.py has written outputs/ddr_eval/*.json):
-#   python visualize_ddr.py
-# Writes outputs/ddr_visualize/diaphragm_point_review.html -- a single
-# self-contained file (~8MB, images inlined as base64), open it directly in
-# a browser. Left/right arrow keys or the filmstrip step through frames.
+# Run from the repo root, after step 7:
+#   uv run --extra research python research/ddr/step08_review_report.py
+# Writes outputs/ddr_visualize/diaphragm_point_review.html (self-contained, ~8MB;
+# open in a browser, step frames with the arrow keys).
 
 import base64
 import json
 import os
-import sys
 
 import cv2
 import numpy as np
 import tensorflow as tf
 
-# Run from anywhere -- see finetune_ddr.py's own comment for why this is here.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from evaluate_ddr import (MASK_OPEN_KERNEL, USE_DICOM_WINDOW_TAGS, find_cases,
-                          predicted_lungs, segment)
 from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_dm_mode_truth_lines,
                                      parse_lung_area_truth, to_model_input, window_params)
 from lungmap.geometry.diaphragm import center_of
+from lungmap.rendering.render import SIDE_COLORS as SIDE_COLOR
+from lungmap.segmentation.pipeline import measure_combined, segment
+from step06_finetune import MASK_OPEN_KERNEL, USE_DICOM_WINDOW_TAGS, find_cases
 
 FINETUNED_MODEL = "best_model_ddr_finetuned_phase3.h5"
 EVAL_DIR = "outputs/ddr_eval"
 OUT_DIR = "outputs/ddr_visualize"
 OUT_HTML = os.path.join(OUT_DIR, "diaphragm_point_review.html")
 
-# Mean out-of-fold DDR Dice from the 5-fold cross-validation finetune_ddr.py
-# ran (each fold's Dice from a model that never saw that fold's patients) --
-# printed at the end of that run; outputs/ddr/finetune_report.json on disk
-# predates the fold_dice field finetune_ddr.py now writes, so this is not
-# re-derived from it here.
+# Mean out-of-fold DDR Dice printed at the end of step 6's run (each fold scored
+# by a model that never saw its patients). Hard-coded because the
+# finetune_report.json on disk predates the fold_dice field step 6 now writes.
 OUT_OF_FOLD_DICE = 0.9681068500007083
 
-# BGR, matches Step6ValidateDDR.SIDE_COLOR
-SIDE_COLOR = {"R": (80, 200, 255), "L": (255, 180, 80)}
 TRUTH_MASK_COLOR = (0, 255, 255)   # yellow
 PRED_MASK_COLOR = (0, 255, 0)      # green
 
@@ -120,7 +97,7 @@ def build_frames(model):
         for frame_idx in sorted(set(lung_truth) | set(dm_points)):
             img = to_model_input(frames[frame_idx], photometric, wc, ww)
             pred_mask = segment(img, model, open_kernel=MASK_OPEN_KERNEL)
-            _, pred_curves = predicted_lungs(pred_mask)
+            _, _, pred_curves = measure_combined(pred_mask)
             pred_points = {side: center_of(*curve) for side, curve in pred_curves.items()
                           if curve is not None}
 

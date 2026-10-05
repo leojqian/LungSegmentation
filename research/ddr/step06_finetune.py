@@ -1,79 +1,35 @@
-# Fine-tunes the Montgomery-trained lung-segmentation U-Net (best_model.h5) on
-# the DDR dataset (SampleDDR_August2026, Konica Minolta dynamic diaphragm
-# radiography, 20 patients).
+# Step 6: fine-tune the Montgomery U-Net (best_model.h5) on the 20-case DDR set.
+# Writes best_model_ddr_finetuned_phase3.h5 -- the model lungmap ships -- and
+# outputs/ddr/finetune_report.json. Takes several hours on CPU.
 #
-# Orientation: the DDR DICOMs' own Field of View Horizontal Flip tag was not
-# being applied by earlier code, so images were mirrored relative to true
-# anatomy (confirmed by direct visual check against the cardiac silhouette).
-# All image/mask loading here goes through lungmap/formats/dicom_io.py, which now
-# applies that flip -- there is no DICOM-reading code in this file, so the
-# fix is inherited automatically rather than needing to be reapplied here.
-# (DM-MODE_truth's R/L point labels needed their own mirror-and-relabel fix
-# too, but this script never touches those -- diaphragm points aren't used
-# as a training signal, only LungArea_truth masks are.)
+# Method (rationale: docs/design/2026-08-24-ddr-domain-adaptation.md):
+#   1. Preprocessing chosen by a calibration pass on the unmodified base model:
+#      min/max windowing, opening kernel 5, the vendor-processed images_pres DICOMs.
+#   2. 5-fold cross-validation grouped by patient (16 train / 4 held out).
+#   3. Train only on LungArea_truth frames (~2 per case), augmented 5x with small
+#      rotations/shifts/contrast changes -- never left-right flips.
+#   4. Fine-tune the decoder only; tuning the encoder too wiped out the
+#      Montgomery performance within an epoch.
+#   5. Keep an epoch only if Montgomery Dice stays >= 0.96; among those, keep
+#      the lowest DDR validation loss.
+#   6. Save the fold with the best held-out DDR Dice. step07_evaluate.py scores it.
 #
-# Method
-# ------
-# 1. Preprocessing is fixed to the winning combination from a separate
-#    calibration pass (coordinate ascent over windowing / mask post-processing
-#    kernel / image source, scored with the *unmodified* base model): min/max
-#    windowing, kernel=5 morphological opening, the vendor-processed
-#    (images_pres) DICOM source rather than the raw acquisition.
-#
-# 2. 5-fold group cross-validation BY PATIENT (16 train / 4 held-out cases per
-#    fold) — no patient's frames appear in both train and validation within a
-#    fold, so every fold score is a genuinely unseen-patient estimate.
-#
-# 3. Training data is only the LungArea_truth-annotated frames (~2/case,
-#    ~32 images per fold), each expanded 5x with augmentation (small rotation,
-#    translation, brightness/contrast jitter). Deliberately NO horizontal
-#    flip augmentation: chest anatomy is not left-right symmetric, and
-#    flipping would train the model to expect either orientation.
-#
-# 4. Only the DECODER is fine-tuned (encoder frozen). An earlier attempt at
-#    fine-tuning the whole network at this learning rate caused catastrophic
-#    forgetting of the Montgomery-trained baseline within epoch 0-1 — no
-#    checkpoint ever stayed above the regression floor. Freezing the encoder
-#    and restricting adaptation to the decoder slows that forgetting down
-#    enough for useful checkpoints to exist.
-#
-# 5. Checkpoint selection is decoupled from early stopping: every epoch is
-#    scored against a held-out Montgomery validation set (the ORIGINAL
-#    training domain), and only accepted as a candidate checkpoint if that
-#    score stays >= MONTGOMERY_DICE_FLOOR. Among candidates, the one with the
-#    lowest DDR fold validation loss is kept. A fold where no epoch ever
-#    clears the floor falls back to the unmodified base model, reported
-#    explicitly rather than silently kept.
-#
-# 6. The single model saved to disk (MODEL_OUT) is whichever fold's held-out
-#    DDR Dice was highest among floor-passing folds — the practical
-#    deployable model. The mean Dice across all 5 folds (each computed by a
-#    model that never saw that fold's patients) is the more rigorous estimate
-#    of true generalization; see evaluate_ddr.py for that full evaluation.
-#
-# Run: python finetune_ddr.py
-# (takes several hours on CPU; the DDR training set is small but each of the
-# 5 folds trains a full model from the Montgomery checkpoint)
+# Run from the repo root:
+#   uv run --extra research python research/ddr/step06_finetune.py
 
 import glob
 import json
 import os
 import re
-import sys
 
 import cv2
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import KFold
 
-# Run from anywhere; this file lives in <repo root>/submission/, and the
-# formats/geometry/segmentation packages it needs live one level up. Data
-# paths below (DDR_DIR etc.) are still relative to the current directory --
-# invoke this as `python submission/finetune_ddr.py` from the repo root.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from lungmap.formats.dicom_io import (load_frames, parse_lung_area_truth, to_model_input,
                                      window_params)
+from lungmap.segmentation.pipeline import segment   # always called with MASK_OPEN_KERNEL
 
 DDR_DIR = "SampleDDR_August2026"
 IMAGES_PRES_DIR = os.path.join(DDR_DIR, "images_pres")
@@ -126,37 +82,6 @@ def dice(pred, truth):
     pred, truth = pred.astype(bool), truth.astype(bool)
     total = pred.sum() + truth.sum()
     return 2 * np.logical_and(pred, truth).sum() / total if total else 1.0
-
-
-def _keep_largest_components(mask, n=2):
-    """Drop every connected component except the n largest.
-
-    Clears spurious false-positive islands (soft-tissue/skin-fold activations
-    seen on DDR) that survive morphological opening without touching the real
-    lung blobs -- exactly two are expected, so n=2 is a safe floor here.
-    """
-    n_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-    if n_labels - 1 <= n:
-        return mask
-    keep = 1 + np.argsort(stats[1:, cv2.CC_STAT_AREA])[::-1][:n]
-    return np.isin(labels, keep).astype(np.uint8)
-
-
-def segment(image, model, open_kernel=MASK_OPEN_KERNEL):
-    """Normalized image -> binary lung mask uint8, at the image's own resolution.
-
-    Resizes down to the model's input size for prediction, then upscales the
-    soft probabilities (not the threshold) back up before thresholding --
-    thresholding at 256 first locks the boundary onto that grid and turns
-    every mask pixel into a many-pixel staircase.
-    """
-    small = cv2.resize(image, (MODEL_SIZE, MODEL_SIZE))
-    small = np.repeat(small[..., None], 3, axis=-1)
-    soft = model.predict(np.expand_dims(small, 0), verbose=0)[0, ..., 0]
-    full = cv2.resize(soft, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_CUBIC)
-    opened = cv2.morphologyEx((full > 0.5).astype(np.uint8), cv2.MORPH_OPEN,
-                              np.ones((open_kernel, open_kernel), np.uint8))
-    return _keep_largest_components(opened, n=2)
 
 
 # --- Montgomery regression guard ----------------------------------------------
@@ -294,7 +219,7 @@ def fine_tune_fold(fold_idx, train_cases, val_cases, montgomery):
         wc, ww = window_params(dcm_path) if USE_DICOM_WINDOW_TAGS else (None, None)
         for frame_idx, truth_mask in truth.items():
             img = to_model_input(frames[frame_idx], photometric, wc, ww)
-            fold_dice.append(dice(segment(img, model), truth_mask))
+            fold_dice.append(dice(segment(img, model, open_kernel=MASK_OPEN_KERNEL), truth_mask))
 
     return model, {"epoch": epoch, "montgomery_dice": montgomery_dice,
                    "fold_dice": float(np.mean(fold_dice))}

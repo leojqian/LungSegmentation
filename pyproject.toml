@@ -9,8 +9,7 @@ description = "Lung landmarks and diaphragm points from chest X-ray DICOM, per f
 readme = "README.md"
 # keras 3.15 needs >=3.11; TensorFlow 2.21 ships wheels up to 3.13 only.
 requires-python = ">=3.11,<3.14"
-# Lower bounds are the versions this was tested with (see requirements.txt for
-# the exact pins of the development environment).
+# Lower bounds are the tested versions; uv.lock pins them exactly.
 dependencies = [
     "tensorflow>=2.21",
     "keras>=3.15",
@@ -23,7 +22,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7"]            # run the tests
+research = ["scikit-learn>=1.0"]   # run the scripts in research/
 
 [project.scripts]
 lungmap = "lungmap.cli:main"
@@ -37,7 +37,13 @@ constraint-dependencies = [
     "numpy==2.4.6",
     "opencv-python==5.0.0.93",
     "pydicom==3.0.2",
+    "scikit-learn==1.9.0",
 ]
 
+# Only lungmap/ is packaged; research/, tests/ and docs/ never are.
 [tool.setuptools.packages.find]
 include = ["lungmap*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,11 +1,9 @@
-# The `lungmap` command (also `python -m lungmap`, and what the double-click
-# launchers run): DICOM files or folders in; per file, a CSV of 8 points per
-# frame, an annotated overlay DICOM and an MP4.
+# The `lungmap` command (also `python -m lungmap`; the double-click launchers
+# run it too). DICOM files or folders in; per file, a points CSV, an overlay
+# DICOM and an MP4 (made by process.py).
 #
-# Argument handling and terminal output only — the work is process.py's, the
-# model lookup/download model.py's. TensorFlow is imported lazily in
-# load_model so `--help` and argument errors answer instantly. Terminal output
-# is ASCII-only for legacy Windows consoles.
+# Argument handling and terminal output only. Output is ASCII-only, for legacy
+# Windows consoles.
 
 import argparse
 import glob
@@ -18,7 +16,8 @@ import pydicom
 from pydicom.errors import InvalidDicomError
 
 from lungmap import __version__
-from lungmap.model import LEGACY_NAME, MODEL_ENV, ModelError, fetch_model, find_model
+from lungmap import model_file
+from lungmap.model_file import LEGACY_NAME, MODEL_ENV
 from lungmap.process import process_dicom
 
 OUT_DIR_NAME = "lungmap_output"
@@ -42,18 +41,6 @@ def build_parser():
                     help="open the output folder(s) when finished")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return ap
-
-
-def load_model(path):
-    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")   # hide TF's C++ startup chatter
-    try:
-        import tensorflow as tf
-    except ImportError as e:
-        hint = ("\nOn Windows this usually means the Microsoft Visual C++ Redistributable "
-                "is missing; install it from https://aka.ms/vs/17/release/vc_redist.x64.exe "
-                "and run lungmap again." if sys.platform == "win32" else "")
-        raise SystemExit(f"lungmap: error: could not load TensorFlow ({e}).{hint}") from e
-    return tf.keras.models.load_model(str(path), compile=False)   # inference only
 
 
 def is_dicom(path):
@@ -132,7 +119,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     inputs = collect_inputs(ap, args.inputs)
 
-    model_path = find_model(args.model)
+    model_path = model_file.find_model(args.model)
     if model_path is not None and not model_path.is_file():
         ap.error(f"model not found: {model_path} (check --model or ${MODEL_ENV})")
 
@@ -140,12 +127,12 @@ def main(argv=None):
     try:
         if model_path is None:
             try:
-                model_path = fetch_model()
-            except ModelError as e:
+                model_path = model_file.fetch_model()
+            except model_file.ModelError as e:
                 print(f"lungmap: error: {e}", file=sys.stderr)
                 return 1
         print(f"loading model {model_path} ...")
-        model = load_model(model_path)
+        model = model_file.load_model(model_path)
 
         for i, path in enumerate(inputs, 1):
             out_dir = args.out_dir or path.parent / OUT_DIR_NAME

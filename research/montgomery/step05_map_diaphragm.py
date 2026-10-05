@@ -1,12 +1,11 @@
-# Map the diaphragm across the Montgomery County chest X-ray set.
+# Step 5: trace the diaphragm on every Montgomery image (how lungmap.geometry's
+# thresholds were developed; see docs/design/2026-08-15-diaphragm-mapping.md).
 #
-#   python Step5MapDiaphragm.py                 overlays + contact sheets + curves.npz
-#   python Step5MapDiaphragm.py --view          step through a window, writes nothing
-#   python Step5MapDiaphragm.py --sample NAME   one image in a window
-#   python Step5MapDiaphragm.py --predicted     segment with the U-Net, not ManualMask
-#
-# I/O and orchestration only: geometry lives in lungmap/geometry/diaphragm.py, drawing in
-# lungmap/rendering/render.py.
+# Run from the repo root (uv run --extra research python research/montgomery/step05_map_diaphragm.py):
+#   (no flags)        overlays + contact sheets + curves.npz -> outputs/
+#   --view            step through images in a window, write nothing
+#   --sample NAME     one image in a window
+#   --predicted       use U-Net masks instead of the hand-drawn ManualMask
 
 import argparse
 import glob

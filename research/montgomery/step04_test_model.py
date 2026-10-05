@@ -1,3 +1,9 @@
+# Step 4: sanity-check best_model.h5 on one Montgomery image: prints the landmark
+# points and shows the mask, diaphragm curves and landmarks in windows.
+#
+# Run from the repo root:
+#   uv run --extra research python research/montgomery/step04_test_model.py
+
 import cv2
 import tensorflow as tf
 

@@ -1,12 +1,12 @@
-# The CLI's output points: one frame's measured geometry reduced to 8 (x, y)
-# points — per side, the lung apex, the diaphragm point, and the two bottom
-# corners — plus the naive baseline those corners imply.
+# The 8 output points per frame -- for each lung: apex, diaphragm point, and
+# the two bottom corners -- plus the naive baseline, their CSV form, and the
+# naive-vs-diaphragm comparison. Pure data shaping; no I/O, no drawing.
 #
-# Pure data shaping — no file I/O, no drawing. "Diaphragm point" is
-# geometry.diaphragm.center_of, the DDR dataset's center-x convention that
-# submission/evaluate_ddr.py scores against. The naive baseline is the plain
-# midpoint of the two bottom corners: no tracing, trimming, or dome fitting,
-# so comparing it to the diaphragm point shows what that machinery buys.
+# "Diaphragm point" is geometry.diaphragm.center_of: the traced curve's
+# horizontal center, the DDR dataset's definition (scored by
+# research/ddr/step07_evaluate.py). The naive baseline is the midpoint of the
+# two bottom corners -- no tracing or fitting -- so comparing the two shows
+# what the diaphragm algorithm adds.
 
 from collections import namedtuple
 

@@ -1,79 +1,29 @@
-# Measures how well a model finds (a) the lung field and (b) the diaphragm
-# point on the DDR dataset, and prints/saves a side-by-side comparison
-# of the baseline (Montgomery-only) model against the DDR fine-tuned one.
+# Step 7: score models against the DDR ground truth.
+#   Lung field:      Dice of the predicted mask vs LungArea_truth, per annotated frame.
+#   Diaphragm point: distance (mm) between the predicted point and DM-MODE_truth's,
+#                    both taken at the curve's horizontal center (the dataset's
+#                    definition; lungmap.geometry.diaphragm.center_of), not its peak.
 #
-# Two metrics, chosen to each be the single clearest number for their task:
-#
-#   Lung field  -> Dice coefficient of the predicted mask against
-#                  LungArea_truth (the hand-segmented ground truth), one
-#                  score per annotated frame.
-#
-#   Diaphragm point -> Euclidean distance between the predicted diaphragm
-#                  point and the hand-drawn DM-MODE_truth point, both using
-#                  the dataset's own definition: SampleDDR_August2026/README.md
-#                  says "the diaphragm point is defined as the center
-#                  x-coordinate" of the curve, not its highest point. The
-#                  predicted side is reduced the same way -- lungmap.geometry
-#                  .diaphragm.center_of() on the model's own traced diaphragm curve, the
-#                  same curve measure_lung() derives its (different) "dome"
-#                  apex point from -- so both sides use one definition. An
-#                  earlier version of this file scored a peak-vs-peak
-#                  comparison instead (predicted dome apex vs. the truth
-#                  line's own re-derived peak); that was internally
-#                  consistent but did not match what the dataset actually
-#                  calls "the diaphragm point."
-#
-# Orientation: all image/mask/point loading goes through lungmap/formats/dicom_io.py,
-# which applies the DICOM's Field of View Horizontal Flip and the matching
-# DM-MODE_truth point correction -- see that module for the full explanation.
-# There is no DICOM- or XML-reading code in this file.
-#
-# Run:
-#   python evaluate_ddr.py
-#       compares best_model.h5 (baseline) vs best_model_ddr_finetuned_phase3.h5
-#   python evaluate_ddr.py --model PATH --label NAME [--model PATH --label NAME ...]
-#       compares an arbitrary list of checkpoints instead
-#
-# Writes outputs/ddr_eval/<label>.json (per-case detail, for the Apex Review
-# artifact) and prints the summary table.
+# Run from the repo root:
+#   uv run --extra research python research/ddr/step07_evaluate.py
+#       baseline (best_model.h5) vs fine-tuned (best_model_ddr_finetuned_phase3.h5)
+#   ... step07_evaluate.py --model PATH --label NAME [--model PATH --label NAME ...]
+# Writes outputs/ddr_eval/<label>.json and prints a comparison table.
 
 import argparse
 import json
 import os
-import sys
 
 import numpy as np
 import tensorflow as tf
 
-# Run from anywhere -- see finetune_ddr.py's own comment for why this is here.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from finetune_ddr import (MASK_OPEN_KERNEL, MODEL_SIZE, USE_DICOM_WINDOW_TAGS,
-                          find_cases, segment)
 from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_lung_area_truth,
                                      to_model_input, window_params)
-from lungmap.geometry.diaphragm import center_of, cliff_step_for, split_lungs
-from lungmap.segmentation.pipeline import CLIFF_FACTOR, RISE_FRACTION, measure_masks
+from lungmap.geometry.diaphragm import center_of
+from lungmap.segmentation.pipeline import measure_combined, segment
+from step06_finetune import MASK_OPEN_KERNEL, USE_DICOM_WINDOW_TAGS, find_cases
 
 OUT_DIR = "outputs/ddr_eval"
-
-
-def predicted_lungs(mask):
-    """Predicted binary mask -> ({"R": LungPoints or None, ...}, {"R": Diaphragm or None, ...}).
-
-    curves holds each side's traced diaphragm curve (measured + fitted dome),
-    the same curve LungPoints.dome was derived from -- callers wanting a
-    different point reduction (e.g. center_of, matching the dataset's own
-    "diaphragm point" convention) apply it to curves, not lungs.
-    """
-    try:
-        masks = dict(zip(["R", "L"], split_lungs(mask)))
-    except ValueError:
-        return {}, {}
-    max_step = cliff_step_for(mask.shape[0], model_size=MODEL_SIZE, factor=CLIFF_FACTOR)
-    lungs, curves = measure_masks(masks, max_rise_frac=RISE_FRACTION, max_step=max_step)
-    return lungs, curves
 
 
 def evaluate_case(case_id, dcm_path, xml_path, raw_path, model):
@@ -96,7 +46,7 @@ def evaluate_case(case_id, dcm_path, xml_path, raw_path, model):
                              "dice": 2 * inter / total if total else 1.0})
 
         if frame_idx in dm_points:
-            _, curves = predicted_lungs(pred_mask)
+            _, _, curves = measure_combined(pred_mask)
             errors = {}
             for side, (truth_x, truth_y) in dm_points[frame_idx].items():
                 curve = curves.get(side)

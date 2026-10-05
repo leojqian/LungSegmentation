@@ -9,7 +9,6 @@ from lungmap.geometry.diaphragm import cliff_step_for
 from lungmap.points import SidePoints
 from lungmap.rendering.render import (LEFT_COLOR, dash_segments, display_scale, draw_frame_points,
                                       rule_extent, scale_points, tint)
-from Step5MapDiaphragm import select_sample, stem
 
 
 class TestDisplayScale:
@@ -73,11 +72,6 @@ class TestTint:
     def test_stays_uint8(self):
         out = tint(self.canvas(), self.mask(), (255, 255, 255), alpha=0.5)
         assert out.dtype == np.uint8
-
-
-class TestStem:
-    def test_strips_directory_and_extension(self):
-        assert stem("MontgomerySet/CXR_png/MCUCXR_0001_0.png") == "MCUCXR_0001_0"
 
 
 class TestCliffStepFor:
@@ -155,23 +149,6 @@ class TestDashSegments:
 
     def test_width_shorter_than_one_dash_gives_one_clipped_segment(self):
         assert dash_segments(6, dash=10, gap=5) == [(0, 6)]
-
-
-class TestSelectSample:
-    PAIRS = [
-        ("cxr/MCUCXR_0001_0.png", "l/MCUCXR_0001_0.png", "r/MCUCXR_0001_0.png"),
-        ("cxr/MCUCXR_0035_0.png", "l/MCUCXR_0035_0.png", "r/MCUCXR_0035_0.png"),
-    ]
-
-    def test_finds_by_bare_name(self):
-        assert select_sample(self.PAIRS, "MCUCXR_0035_0") == [self.PAIRS[1]]
-
-    def test_finds_by_filename_with_extension(self):
-        assert select_sample(self.PAIRS, "MCUCXR_0035_0.png") == [self.PAIRS[1]]
-
-    def test_unknown_name_raises_with_the_name_in_the_message(self):
-        with pytest.raises(SystemExit, match="MCUCXR_9999_9"):
-            select_sample(self.PAIRS, "MCUCXR_9999_9")
 
 
 class TestDrawFramePoints:
