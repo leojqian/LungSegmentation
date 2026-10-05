@@ -1,165 +1,87 @@
 # lungmap
 
-lungmap looks at a chest X-ray scan (a DICOM file, usually ending in `.dcm`)
-and, on every frame, finds both lungs and marks four points on each: the
-**apex** (top of the lung), the **diaphragm point** (middle of the diaphragm
-under the lung) and the two **bottom corners**. You get a spreadsheet of those
-points, plus a video and a DICOM of the scan with the points drawn on.
+Marks the lungs on every frame of a chest X-ray scan (a DICOM file, `.dcm`):
+for each lung, the **apex**, the **diaphragm point** and the two **bottom
+corners**. You get a spreadsheet of the points and a video of the scan with
+them drawn on. It runs entirely on your computer; scans are never uploaded.
 
-**Everything runs on your own computer. Scans are never uploaded.** The
-internet is used only on the first run, to download the program's parts.
+## Set up (Windows, once)
 
-**Contents:** [Setup on Windows](#setup-on-windows-one-time-about-10-minutes) ·
-[Analyze a scan](#analyze-a-scan) · [Your results](#your-results) ·
-[If something goes wrong](#if-something-goes-wrong) · [Mac](#on-a-mac) ·
-[Update or remove](#update-or-remove) · [For developers](#for-developers)
+You need Windows 10 or 11 on an Intel or AMD PC, 2 GB of free space, and
+internet the first time.
 
----
+1. **Download:** click the green **Code** button above, then **Download ZIP**.
+2. **Unblock:** in your Downloads folder, right-click
+   `LungSegmentation-main.zip`, choose **Properties**, tick **Unblock**, and
+   click **OK**.<br>
+   *Why:* Windows tags downloaded files and warns before running a script
+   from them. Unblocking tells it you trust this download.
+3. **Unzip:** right-click the ZIP, choose **Extract All...**, pick
+   **Documents**, and click **Extract**.
+4. **Shortcut:** in the new folder, right-click **Start lungmap (Windows)** and
+   choose **Send to > Desktop (create shortcut)**. On Windows 11, click **Show
+   more options** first.
+5. **First run:** double-click the shortcut. Setup downloads about 1.5 GB and
+   takes several minutes. It's ready when it says *Drag a DICOM file or a
+   folder into this window*.
 
-## Setup on Windows (one time, about 10 minutes)
+## Use it
 
-**You need:** a Windows 10 or 11 PC with an Intel or AMD processor (Windows on
-ARM / Snapdragon won't work), about **2 GB** of free disk space, and internet
-for the first run.
-
-### 1. Download
-
-1. On this page, click the green **Code** button (top right of the file list).
-2. Click **Download ZIP**. `LungSegmentation-main.zip` is saved to your
-   **Downloads** folder.
-
-### 2. Unzip it to a permanent place
-
-1. In **File Explorer**, open **Downloads**.
-2. Right-click `LungSegmentation-main.zip` and choose **Properties**. If there's
-   an **Unblock** box at the bottom, tick it, then click **OK**. This avoids a
-   security warning later.
-3. Right-click the ZIP again, choose **Extract All...**, pick your
-   **Documents** folder with **Browse...**, and click **Extract**.
-
-You now have `Documents\LungSegmentation-main`. It holds many files, but **the
-only one you need is `Start lungmap (Windows)`.** Don't use
-`Start lungmap (Mac)`; that one is for Apple computers.
-
-### 3. Make a desktop shortcut
-
-Right-click **Start lungmap (Windows)**, then choose **Send to > Desktop
-(create shortcut)**. On Windows 11, choose **Show more options** first.
-
-### 4. Run it once to finish setup
-
-1. Double-click the new desktop shortcut.
-2. If a blue **"Windows protected your PC"** box appears, click **More info**,
-   then **Run anyway**. If an **"Open File - Security Warning"** box appears,
-   click **Run**. This only happens the first time.
-3. A black window opens and sets everything up. **This takes several minutes**
-   (about 1.5 GB to download), and lots of scrolling text is normal.
-4. Setup is done when it asks:
-   ```
-   Drag a DICOM file or a folder into this window, then press Enter:
-   ```
-   Carry on with the next section.
-
----
-
-## Analyze a scan
-
-Either:
-
-- **Drag a scan file, or a folder of scans, onto the desktop shortcut.** Or:
-- **Double-click the shortcut**, drag the scan or folder into the black window,
-  and press **Enter**.
-
-Then wait:
-
-- The very first time, it also downloads the model (about 126 MB).
-- A progress bar shows each scan. A scan takes about 1 to 3 minutes.
-- When it prints **`Done.`**, the results folder opens by itself. Press any key
-  to close the black window.
-
----
+1. **Drag a scan, or a folder of scans, onto the desktop shortcut.** Or
+   double-click the shortcut, drag the scan into the window, and press
+   **Enter**.
+2. **Wait** about 1 to 3 minutes per scan.
+3. **The results folder opens by itself.** Press any key to close the window.
 
 ## Your results
 
-Results go in a **`lungmap_output`** folder next to the scan:
+They're saved in a `lungmap_output` folder next to the scan. For `chest.dcm`:
 
-```
-Your scans folder
-├── chest.dcm
-└── lungmap_output
-    ├── chest_points.csv      the numbers
-    ├── chest_overlay.mp4     the video
-    └── chest_overlay.dcm     the same pictures, as a DICOM
-```
-
-| file | open it with | what it shows |
+| file | open with | shows |
 |---|---|---|
-| `chest_points.csv` | Excel | One row per frame with the x, y position (in pixels, from the image's top-left corner) of each lung's apex, diaphragm point and two bottom corners. A blank cell means that point wasn't found on that frame. |
-| `chest_overlay.mp4` | Media Player (double-click) | The scan frame by frame, with the lungs and points drawn on. |
-| `chest_overlay.dcm` | a DICOM viewer | The same pictures, filed under the same patient and study as the original. |
+| `chest_points.csv` | Excel | one row per frame: the x, y pixel position of each point (blank = not found) |
+| `chest_overlay.mp4` | Media Player | the scan with the lungs and points drawn on |
+| `chest_overlay.dcm` | a DICOM viewer | the same pictures, filed with the original scan |
 
-**Reading the pictures:**
-
-| you see | it means |
-|---|---|
-| amber lung, **R** in the key | the lung on the image's left (the patient's right lung) |
-| blue lung, **L** in the key | the other lung |
-| triangle | apex: the top of the lung |
-| two squares joined by a dashed line | the bottom corners |
-| line along the bottom of the lung | the diaphragm; dashed where its hidden dome is estimated |
-| filled circle | the diaphragm point: the middle of that line |
-| hollow circle | a simple guess for comparison: the middle of the dashed line between the corners |
-
-After each scan the black window also prints how far apart the diaphragm point
-and the simple guess were, on average. That's for comparison only; there's
-nothing you need to do with it.
-
----
+**In the pictures:**
+- **Lung colors:** amber (**R**) is the lung on the image's left, which is the
+  patient's right; blue (**L**) is the other.
+- **Points:** a **triangle** marks the apex, and two **squares** joined by a
+  dashed line mark the bottom corners.
+- **Diaphragm:** the **line along the bottom of the lung**, dashed where its
+  hidden dome is estimated. The **filled circle** is the diaphragm point at its
+  middle.
+- **Simple guess:** the **hollow circle** sits halfway between the corners, for
+  comparison.
 
 ## If something goes wrong
 
-| what you see | what to do |
+| you see | do this |
 |---|---|
-| The black window flashes and closes | Check that you unzipped the folder (step 2) and are using **Start lungmap (Windows)**. |
-| "Windows protected your PC" | Click **More info**, then **Run anyway**. |
-| Antivirus blocks it | Allow it once. It's a small script that sets up Python. |
-| `could not download the model` | Check the internet connection and run it again. |
-| `could not load TensorFlow` | Install the [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), restart the computer, and run it again. |
-| `not a readable DICOM file` | That file isn't a scan. Check you dragged the right one. |
-| `no DICOM files found in: ...` | Drag the folder that directly contains the `.dcm` files. |
-| An error about the video or `.mp4` | Move the scans to a folder whose name is only plain English letters and numbers, such as `C:\Scans`. |
-| `Something went wrong - see the messages above.` | Take a screenshot of the black window and send it to Leo. |
+| "Windows protected your PC" | Click **More info**, then **Run anyway**. It appears if step 2 was skipped. |
+| The window flashes and closes | Make sure you extracted the ZIP (step 3) and used **Start lungmap (Windows)**. |
+| `could not download the model` | Check the internet connection and try again. |
+| `could not load TensorFlow` | Install the [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe), restart, and try again. |
+| `not a readable DICOM file` or `no DICOM files found` | Drag the scan file itself, or the folder that holds the `.dcm` files. |
+| An error about the video | Move the scans to a folder with a plain English name, such as `C:\Scans`. |
+| Anything else | Send a screenshot of the window to Leo. |
 
-**Starting over:** type `%LOCALAPPDATA%` into File Explorer's address bar,
-press Enter, and delete the **lungmap** folder there. The next run sets
-everything up again.
+**Starting over:** type `%LOCALAPPDATA%` in File Explorer's address bar and
+delete the **lungmap** folder there. The next run sets up again.
 
----
+## Mac (Apple silicon)
 
-## On a Mac
-
-Apple-silicon Macs only. The steps are the same, but use
-**Start lungmap (Mac)**. If macOS blocks it the first time, go to **System
-Settings > Privacy & Security** and click **Open Anyway**. To give it a scan,
-drag the file or folder into the window it opens and press **Return**.
-
----
+Same steps, but skip Unblock and use **Start lungmap (Mac)**. If macOS blocks it,
+open **System Settings > Privacy & Security** and click **Open Anyway**.
 
 ## Update or remove
 
-**Update:** download the ZIP again and extract it over the old folder. Your
-setup is kept, so it still starts quickly.
-
-**Remove (Windows):**
-1. Delete the `LungSegmentation-main` folder and the desktop shortcut.
-2. In File Explorer's address bar, open `%LOCALAPPDATA%` and delete the
-   **lungmap** and **uv** folders.
-3. Open `%APPDATA%` and delete the **uv** folder.
-4. Open `%USERPROFILE%\.local\bin` and delete **uv.exe** and **uvx.exe**.
-
-Your scans and `lungmap_output` folders are not touched.
-
----
+- **Update:** download the ZIP again (steps 1 to 3) and extract it over the old
+  folder. Setup is kept.
+- **Remove:** delete the folder and the shortcut, then delete these:
+  - **lungmap** and **uv** in `%LOCALAPPDATA%`
+  - **uv** in `%APPDATA%`
+  - **uv.exe** and **uvx.exe** in `%USERPROFILE%\.local\bin`
 
 ## For developers
 
