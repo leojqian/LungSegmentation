@@ -83,6 +83,94 @@ open **System Settings > Privacy & Security** and click **Open Anyway**.
   - **uv** in `%APPDATA%`
   - **uv.exe** and **uvx.exe** in `%USERPROFILE%\.local\bin`
 
+## How it works
+
+Every frame of the scan goes through the same steps. Each step below names the
+file in `lungmap/` that does it.
+
+```mermaid
+flowchart LR
+  A[DICOM scan] --> B[Read frame]
+  B --> C[Find lungs<br/>U-Net]
+  C --> D[Split into<br/>R and L]
+  D --> E[Apex and<br/>bottom corners]
+  D --> F[Diaphragm curve]
+  F --> G[Diaphragm point]
+  E --> H[Naive midpoint]
+  E --> I[points.csv]
+  G --> I
+  E --> J[overlay .mp4 and .dcm]
+  F --> J
+  G --> J
+  H --> J
+```
+
+1. **Get the model** (`model_file.py`). The lung finder is a U-Net, a neural
+   network that labels every pixel as lung or not lung. It was trained on the
+   Montgomery chest X-ray set, then fine-tuned on 20 DDR scans (see
+   [research/](research/README.md)). The first run downloads it (126 MB) and
+   checks it against a fixed SHA-256 fingerprint. Later runs reuse the copy.
+2. **Read the frame** (`formats/dicom_io.py`: `load_frames`, `to_model_input`).
+   - The DICOM's stored left-right flip is applied, so the heart is on the
+     image's right as on any front-facing chest film.
+   - Brightness is scaled to 0 to 1. Scans stored with white-means-zero
+     (MONOCHROME1) are inverted.
+3. **Find the lungs** (`segmentation/pipeline.py`: `segment`).
+   - The frame is shrunk to 256 × 256, the U-Net's input size, and the model
+     predicts each pixel's chance of being lung.
+   - That prediction is scaled back to full size *before* being cut at 50%, so
+     the lung edge stays smooth instead of blocky.
+   - A small morphological "opening" (5 px) removes specks, and only the two
+     largest blobs are kept.
+4. **Split into two lungs** (`geometry/diaphragm.py`: `split_lungs`). The two
+   blobs are sorted by position: the one on the image's left is **R** (the
+   patient's right lung), the other is **L**.
+5. **Apex and bottom corners** (`geometry/landmarks.py`). Both come from each
+   lung's outline.
+   - **Apex** (`top_point`): the highest outline point, averaged over its
+     topmost pixels so a flat top gives one steady point.
+   - **Bottom corners** (`bottom_corners`): the outline points farthest
+     down-and-left and down-and-right along 45° diagonals. Diagonals stay
+     pinned to the corner, where "lowest point at the far left" would slide
+     along a flat diaphragm. These are the angles where the diaphragm meets the
+     chest wall and the heart.
+6. **Trace the diaphragm** (`geometry/diaphragm.py`: `trace_diaphragm`). Start
+   from the lung's lowest pixel in every column and smooth it. Not all of that
+   lower edge is diaphragm, so three trims remove the rest:
+   - **sudden jumps** (`trim_cliffs`): the steep border of the heart.
+   - **too much climb** (`trim_rise`): anything rising more than 20% of the
+     lung's height above the lowest point, which is the heart border sloping
+     up.
+   - **a hook at either end** (`trim_terminal_upturn`): where the edge turns up
+     the side chest wall.
+   - Finally the trace is clipped to the span between the two bottom corners
+     (`trim_to_span`).
+7. **Fit the hidden dome** (`fit_dome`). Part of the diaphragm hides behind the
+   heart, so a quadratic (a parabola) is fitted through the traced points and
+   extended a little past them. It's only kept if it actually curves like a
+   dome. On the overlay this is the **dashed** part of the curve; the traced
+   part is **solid**.
+8. **Diaphragm point** (`center_of`). This is the point on the curve at its
+   horizontal middle, the same definition the DDR dataset's ground truth uses.
+   The fitted dome is used only when its peak lies over the traced part
+   (allowing 15% extra on each side); otherwise the traced curve alone is
+   used.
+9. **Naive midpoint** (`points.py`: `naive_midpoint`). This is the halfway point
+   between the two bottom corners, with no tracing or fitting. It's a simple
+   baseline that shows what steps 6 to 8 add. It's drawn on the overlay and
+   summarized in the window, but not saved to the CSV.
+10. **Write the outputs** (`process.py`, which runs steps 2 to 9 for every
+    frame):
+    - **CSV** (`points.py`): one row per frame, with the 8 points to 0.1 px.
+    - **Pictures** (`rendering/render.py`): the lungs and points drawn on each
+      full-size frame.
+    - **Video** (`formats/video.py`) and **DICOM** (`formats/dicom_io.py`):
+      those pictures saved frame by frame. The DICOM copies the original
+      scan's patient, study, pixel size and frame rate.
+
+`cli.py` handles everything around this: which files to read, where to save,
+and the messages in the window.
+
 ## For developers
 
 ### Run it from the code
