@@ -81,16 +81,48 @@ Inside `lungmap/`:
 | `formats/` | read and write DICOM (`dicom_io.py`); write MP4 (`video.py`) |
 | `rendering/render.py` | drawing the overlays |
 
-## For developers
+## Run it from the code (for developers)
 
-```bash
-uv run lungmap scan.dcm                # files, folders or *.dcm; -o DIR, --open, --model PATH
-uv run --extra dev pytest              # tests
-```
+1. **Install uv** (it fetches the right Python by itself):
+   - Mac: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+   - Windows (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+2. **Get the code:**
+   ```bash
+   git clone https://github.com/leojqian/LungSegmentation.git
+   cd LungSegmentation
+   ```
+3. **Make a sample.** Point it at any chest X-ray DICOM. The first run installs
+   the libraries and downloads the model (a few minutes).
+   ```bash
+   uv run lungmap path/to/scan.dcm -o sample_output --open
+   ```
+   Expect `sample_output/` to open with the three files from [What you get](#what-you-get).
+   A 233-frame cine takes about a minute.
 
-`pip install .` also works and installs only `lungmap/`. It needs Python 3.11
-to 3.13 on Windows x86-64 or an Apple-silicon Mac. The model is looked up in
-this order:
+   | option | does |
+   |---|---|
+   | `path/to/folder` or `"*.dcm"` | process every DICOM in a folder, or every match |
+   | `-o DIR` | output folder (default: `lungmap_output` next to each scan) |
+   | `--open` | open the output folder when done |
+   | `--model PATH` | use a specific weights file instead of the downloaded one |
+
+4. **Run the tests** (about 15 seconds; no model or data needed):
+   ```bash
+   uv run --extra dev pytest
+   ```
+   Expect `238 passed`.
+5. **Check accuracy against ground truth** (needs the DDR data in
+   `SampleDDR_August2026/` and both model files; see
+   [research/README.md](research/README.md)):
+   ```bash
+   uv run --extra research python research/ddr/step07_evaluate.py
+   ```
+   Expect Dice 0.980 and a diaphragm-point error of 10.66 ± 13.27 mm (right)
+   and 37.41 ± 11.37 mm (left). This overwrites `outputs/ddr_eval/`.
+
+`pip install .` also works and installs only `lungmap/`, on Python 3.11 to 3.13
+(Windows x86-64 or an Apple-silicon Mac). The model is looked up in this
+order:
 1. `--model`
 2. `$LUNGMAP_MODEL`
 3. `./best_model_ddr_finetuned_phase3.h5`
@@ -99,6 +131,7 @@ this order:
 If none is found, it's downloaded from the `model-v1` release with its
 checksum verified.
 
-**Limits:** upright, front-facing (PA) chest films only. The model was
-fine-tuned on 20 DDR cases, so treat the points as a research measurement, not
-a clinical one.
+## Limits
+
+Upright, front-facing (PA) chest films only. The model was fine-tuned on 20 DDR
+cases, so treat the points as a research measurement, not a clinical one.
