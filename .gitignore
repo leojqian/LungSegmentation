@@ -30,3 +30,9 @@ outputs/
 # Ad-hoc local screenshots from interactive testing
 apex_review_*.png
 orientation_check*.png
+
+# Packaging build artifacts and the CLI's default output folder
+*.egg-info/
+build/
+dist/
+lungmap_output/

@@ -1,3 +1,3 @@
-# Ensures the project root is on sys.path so tests/ can import geometry/,
-# segmentation/, formats/, and rendering/ as packages (no __init__.py — these
-# are implicit namespace packages) regardless of how pytest is invoked.
+# Ensures the project root is on sys.path regardless of how pytest is invoked,
+# so tests/ can import the lungmap package (and the root-level Step*/submission
+# scripts) from a plain checkout, without `pip install -e .` first.

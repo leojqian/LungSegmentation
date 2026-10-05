@@ -13,7 +13,7 @@ from collections import namedtuple
 import cv2
 import numpy as np
 
-from geometry.landmarks import bottom_corners, landmarks_of, top_point
+from lungmap.geometry.landmarks import bottom_corners, landmarks_of, top_point
 
 #: measured = traced from the mask; fitted = dome extrapolated behind the heart
 Diaphragm = namedtuple("Diaphragm", "measured fitted")

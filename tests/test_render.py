@@ -5,8 +5,10 @@
 import numpy as np
 import pytest
 
-from geometry.diaphragm import cliff_step_for
-from rendering.render import dash_segments, display_scale, rule_extent, scale_points, tint
+from lungmap.geometry.diaphragm import cliff_step_for
+from lungmap.points import SidePoints
+from lungmap.rendering.render import (LEFT_COLOR, dash_segments, display_scale, draw_frame_points,
+                                      rule_extent, scale_points, tint)
 from Step5MapDiaphragm import select_sample, stem
 
 
@@ -170,3 +172,44 @@ class TestSelectSample:
     def test_unknown_name_raises_with_the_name_in_the_message(self):
         with pytest.raises(SystemExit, match="MCUCXR_9999_9"):
             select_sample(self.PAIRS, "MCUCXR_9999_9")
+
+
+class TestDrawFramePoints:
+    """The CLI's full-resolution annotated frame. Pixel coordinates must stay
+    identical to the CSV's, so nothing here may rescale."""
+
+    @staticmethod
+    def frame():
+        image = np.full((300, 400), 0.5, np.float32)
+        r = np.zeros((300, 400), bool)
+        r[50:250, 40:160] = True
+        points = SidePoints(apex=(100.0, 50.0), diaphragm=(100.0, 240.0),
+                            lower_left=(40.0, 249.0), lower_right=(159.0, 249.0))
+        return image, {"R": r}, {"R": None}, {"R": points, "L": None}
+
+    def test_same_size_as_the_input_in_bgr(self):
+        image, masks, curves, points = self.frame()
+        canvas = draw_frame_points(image, masks, curves, points, frame_idx=3)
+        assert canvas.shape == (300, 400, 3) and canvas.dtype == np.uint8
+
+    def test_does_not_mutate_the_input(self):
+        image, masks, curves, points = self.frame()
+        before = image.copy()
+        draw_frame_points(image, masks, curves, points, frame_idx=0)
+        assert np.array_equal(image, before)
+
+    def test_tints_the_lung_mask(self):
+        image, masks, curves, points = self.frame()
+        canvas = draw_frame_points(image, masks, {}, {}, frame_idx=None)
+        inside, outside = canvas[150, 100], canvas[150, 300]
+        assert not np.array_equal(inside, outside)
+
+    def test_marks_the_diaphragm_point_in_the_sides_colour(self):
+        image, masks, curves, points = self.frame()
+        canvas = draw_frame_points(image, masks, curves, points, frame_idx=None)
+        assert tuple(canvas[240, 100]) == LEFT_COLOR
+
+    def test_no_lungs_found_still_draws_the_bare_frame(self):
+        image, _, _, _ = self.frame()
+        canvas = draw_frame_points(image, {}, {}, {}, frame_idx=0)
+        assert canvas.shape == (300, 400, 3)

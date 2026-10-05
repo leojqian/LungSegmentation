@@ -7,8 +7,9 @@
 import cv2
 import numpy as np
 
-from geometry.diaphragm import apex_is_lower_bound, apex_of, apex_source
-from geometry.landmarks import contour_of
+from lungmap.geometry.diaphragm import apex_is_lower_bound, apex_of, apex_source
+from lungmap.geometry.landmarks import contour_of
+from lungmap.points import naive_midpoint
 
 VIEW_MAX_DIM = 1024
 LEFT_COLOR = (80, 200, 255)    # amber (BGR), image-left lung
@@ -21,6 +22,10 @@ RULE_FRACTION = 0.11           # height rule reaches this much of canvas width e
 THUMBS_PER_SHEET = 24
 SHEET_COLS = 6
 DARK = (0, 0, 0)
+LIGHT = (235, 235, 235)
+SIDE_COLORS = {"R": LEFT_COLOR, "L": RIGHT_COLOR}   # R is the image-left lung
+LEGEND = (("apex", "apex"), ("corner", "bottom corners"),
+          ("naive", "naive: corner midpoint"), ("diaphragm", "diaphragm point"))
 
 
 # --- coordinate helpers ------------------------------------------------------
@@ -168,6 +173,109 @@ def draw_overlay(cxr, left, right, left_mask=None, right_mask=None,
                              bounds=scale_points([own[:, 0].min(), own[:, 0].max()], f),
                              lower_bound=apex_is_lower_bound(curve.measured, apex))
     return canvas
+
+
+def draw_frame_points(image, masks, curves, points, frame_idx=None):
+    """One analysed frame -> full-resolution BGR canvas for the CLI's overlay.
+
+    image: normalized float HxW (to_model_input's output). masks / curves /
+    points are keyed "R"/"L" and may be empty or hold None for a side that
+    couldn't be measured. Unlike draw_overlay this never rescales, so every
+    pixel lines up with the coordinates the CLI writes to CSV.
+
+    Colour says which lung; marker shape says which point — see LEGEND. The
+    naive corner midpoint is hollow and the algorithm's diaphragm point filled,
+    so the comparison reads at a glance.
+    """
+    canvas = cv2.cvtColor((np.clip(image, 0, 1) * 255).astype(np.uint8), cv2.COLOR_GRAY2BGR)
+    unit = max(1, int(round(max(canvas.shape[:2]) / 512)))
+
+    for side, mask in masks.items():
+        mask = np.asarray(mask).astype(bool)
+        canvas = tint(canvas, mask, SIDE_COLORS[side])
+        try:
+            outline = contour_of(mask)
+        except ValueError:
+            continue
+        cv2.polylines(canvas, [outline.reshape(-1, 1, 2)], True, SIDE_COLORS[side], unit,
+                      cv2.LINE_AA)
+
+    _legend(canvas, frame_idx, unit)   # before the marks, so none is ever hidden under it
+
+    for side, curve in curves.items():
+        if curve is not None:
+            draw_diaphragm(canvas, curve, SIDE_COLORS[side])
+
+    for side, sp in points.items():
+        if sp is None:
+            continue
+        color = SIDE_COLORS[side]
+        if sp.lower_left is not None and sp.lower_right is not None:
+            _dashed_line(canvas, sp.lower_left, sp.lower_right, color, unit)
+        for kind, point in (("apex", sp.apex), ("corner", sp.lower_left),
+                            ("corner", sp.lower_right), ("naive", naive_midpoint(sp)),
+                            ("diaphragm", sp.diaphragm)):
+            if point is not None:
+                _marker(canvas, kind, point, color, unit)
+    return canvas
+
+
+def _marker(canvas, kind, point, color, unit):
+    """One point marker over a dark halo, so it reads on bright and dark film."""
+    x, y = int(round(point[0])), int(round(point[1]))
+    r = 5 * unit
+    if kind == "naive":
+        cv2.circle(canvas, (x, y), r + 1, DARK, 2 * unit + 2, cv2.LINE_AA)
+        cv2.circle(canvas, (x, y), r + 1, color, 2 * unit, cv2.LINE_AA)
+    elif kind == "diaphragm":
+        cv2.circle(canvas, (x, y), r + unit, DARK, -1, cv2.LINE_AA)
+        cv2.circle(canvas, (x, y), r, color, -1, cv2.LINE_AA)
+    elif kind == "corner":
+        cv2.rectangle(canvas, (x - r - unit, y - r - unit), (x + r + unit, y + r + unit), DARK, -1)
+        cv2.rectangle(canvas, (x - r, y - r), (x + r, y + r), color, -1)
+    else:  # apex: upward-pointing triangle
+        outer = np.array([(x, y - r - 2 * unit), (x - r - unit, y + r), (x + r + unit, y + r)])
+        inner = np.array([(x, y - r), (x - r + unit, y + r - unit), (x + r - unit, y + r - unit)])
+        cv2.fillPoly(canvas, [outer], DARK, cv2.LINE_AA)
+        cv2.fillPoly(canvas, [inner], color, cv2.LINE_AA)
+
+
+def _dashed_line(canvas, p0, p1, color, unit):
+    """Dashed straight line from p0 to p1 — dash_segments along its length."""
+    p0, p1 = np.asarray(p0, float), np.asarray(p1, float)
+    length = float(np.hypot(*(p1 - p0)))
+    if length < 1:
+        return
+    for a, b in dash_segments(int(length), dash=8 * unit, gap=6 * unit):
+        q0 = tuple(np.round(p0 + (p1 - p0) * a / length).astype(int))
+        q1 = tuple(np.round(p0 + (p1 - p0) * b / length).astype(int))
+        cv2.line(canvas, q0, q1, color, unit, cv2.LINE_AA)
+
+
+def _legend(canvas, frame_idx, unit):
+    """Frame number, side colours and marker key, top-left on a dark panel."""
+    font, size = cv2.FONT_HERSHEY_SIMPLEX, 0.32 * unit
+    line = 13 * unit
+    header = [f"frame {frame_idx}"] if frame_idx is not None else []
+    texts = header + ["R lung   L lung"] + [text for _, text in LEGEND]
+    width = max(cv2.getTextSize(t, font, size, unit)[0][0] for t in texts) + 34 * unit
+    panel = canvas[:line * len(texts) + 8 * unit, :width]
+    panel[:] = (panel * 0.35).astype(np.uint8)
+
+    def text(s, x, y, color=LIGHT):
+        cv2.putText(canvas, s, (x, y), font, size, color, unit, cv2.LINE_AA)
+
+    y = line
+    if header:
+        text(header[0], 8 * unit, y)
+        y += line
+    text("R lung", 8 * unit, y, SIDE_COLORS["R"])
+    text("L lung", 8 * unit + cv2.getTextSize("R lung   ", font, size, unit)[0][0], y,
+         SIDE_COLORS["L"])
+    for kind, label in LEGEND:
+        y += line
+        _marker(canvas, kind, (14 * unit, y - 4 * unit), LIGHT, max(1, unit - 1))
+        text(label, 26 * unit, y)
 
 
 def contact_sheet(tiles, cols=SHEET_COLS):

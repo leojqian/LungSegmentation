@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import pytest
 
-from geometry.diaphragm import (
+from lungmap.geometry.diaphragm import (
     bottom_profile,
     trace_diaphragm,
     largest_component,

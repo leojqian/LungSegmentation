@@ -5,8 +5,8 @@ import cv2
 import numpy as np
 import pytest
 
-from geometry.landmarks import (average_point, bottom_corners, contour_of, diagonal_extreme,
-                       landmarks_of, top_point)
+from lungmap.geometry.landmarks import (average_point, bottom_corners, contour_of, diagonal_extreme,
+                               landmarks_of, top_point)
 
 
 def lung_like(h=400, w=300, top=40, bottom=360):

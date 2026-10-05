@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
-from geometry.diaphragm import apex_of, diaphragm_of, measure_lung
+from lungmap.geometry.diaphragm import apex_of, diaphragm_of, measure_lung
 
 
 def lung_mask(h=600, w=500, cx=250, cy=280, rx=150, ry=220):

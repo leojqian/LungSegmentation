@@ -10,8 +10,8 @@ import pytest
 from pydicom.dataset import FileDataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
 
-from formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_lung_area_truth,
-                     to_model_input, window_params)
+from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_lung_area_truth,
+                             to_model_input, window_params)
 
 
 def write_dicom(path, frames, photometric="MONOCHROME1", pixel_spacing=(0.4, 0.4),
@@ -67,6 +67,13 @@ class TestLoadFrames:
     def test_returns_pixel_spacing_in_mm(self, dicom_path):
         _, spacing, _ = load_frames(dicom_path)
         assert spacing == pytest.approx(0.4)
+
+    def test_pixel_spacing_is_none_when_the_file_has_no_spacing_tag(self, dicom_path):
+        ds = pydicom.dcmread(dicom_path)
+        del ds.PixelSpacing
+        ds.save_as(dicom_path)
+        _, spacing, _ = load_frames(dicom_path)
+        assert spacing is None
 
     def test_returns_photometric_interpretation(self, dicom_path):
         _, _, photometric = load_frames(dicom_path)

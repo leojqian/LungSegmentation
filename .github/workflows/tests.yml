@@ -1,0 +1,66 @@
+# Unit tests on Windows and macOS, plus a real first run of each double-click
+# launcher on a clean runner: no uv, no Python env, no model. The launcher
+# installs uv, Python and the libraries, downloads the model from the model-v1
+# release, and processes a synthetic DICOM, which is exactly what a new user's
+# machine does.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --locked --extra dev pytest -q
+
+  launcher-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: First run (installs uv, Python and the libraries)
+        shell: cmd
+        run: lungmap.bat --help
+      - name: Make a synthetic 3-frame DICOM
+        shell: cmd
+        run: |
+          set "PATH=%USERPROFILE%\.local\bin;%PATH%"
+          set "UV_PROJECT_ENVIRONMENT=%LOCALAPPDATA%\lungmap\venv"
+          uv run --locked python -c "import sys, numpy as np; sys.path.insert(0, 'tests'); from fakes import write_dicom; write_dicom('ci case.dcm', np.random.default_rng(0).integers(0, 4000, (3, 256, 256)).astype(np.uint16), FrameTime=66)"
+      - name: Run the launcher on it (downloads the model from the release)
+        shell: cmd
+        run: lungmap.bat "ci case.dcm"
+      - name: Check the three outputs exist
+        shell: pwsh
+        run: |
+          foreach ($f in "ci case_points.csv", "ci case_overlay.dcm", "ci case_overlay.mp4") {
+            if (-not (Test-Path "lungmap_output/$f")) { throw "missing $f" }
+          }
+
+  launcher-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: First run (installs uv, Python and the libraries)
+        run: ./lungmap.command --help < /dev/null
+      - name: Make a synthetic 3-frame DICOM
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          export UV_PROJECT_ENVIRONMENT="$HOME/Library/Application Support/lungmap/venv"
+          uv run --locked python -c "import sys, numpy as np; sys.path.insert(0, 'tests'); from fakes import write_dicom; write_dicom('ci case.dcm', np.random.default_rng(0).integers(0, 4000, (3, 256, 256)).astype(np.uint16), FrameTime=66)"
+      - name: Run the launcher on it (downloads the model from the release)
+        run: ./lungmap.command "ci case.dcm" < /dev/null
+      - name: Check the three outputs exist
+        run: |
+          for f in "ci case_points.csv" "ci case_overlay.dcm" "ci case_overlay.mp4"; do
+            test -f "lungmap_output/$f" || { echo "missing $f"; exit 1; }
+          done

@@ -9,10 +9,10 @@ from collections import namedtuple
 import cv2
 import numpy as np
 
-from geometry.diaphragm import (CLIFF_STEP, RISE_FRACTION, cliff_step_for, diaphragm_of,
-                                measure_lung, split_lungs)
-from formats.dicom_io import load_frames, to_model_input, window_params
-from geometry.landmarks import contour_of
+from lungmap.geometry.diaphragm import (CLIFF_STEP, RISE_FRACTION, cliff_step_for, diaphragm_of,
+                                        measure_lung, split_lungs)
+from lungmap.formats.dicom_io import load_frames, to_model_input, window_params
+from lungmap.geometry.landmarks import contour_of
 
 MODEL_SIZE = 256
 OPEN_KERNEL = 21    # calibrated 2026-08-24 against the DDR set — see the Phase 1
@@ -110,6 +110,23 @@ def measure_masks(masks, max_rise_frac=RISE_FRACTION, max_step=CLIFF_STEP):
         except ValueError:
             curves[side] = None
     return lungs, curves
+
+
+def measure_combined(mask, max_rise_frac=RISE_FRACTION, cliff_factor=CLIFF_FACTOR):
+    """Merged two-lung mask from segment() -> (masks, lungs, curves), keyed "R"/"L".
+
+    analyze_frame's measuring step, minus its raise: when the mask doesn't hold
+    two lungs, all three come back as {} so a caller looping over frames still
+    has that frame's mask to show. Same no-raise contract as
+    Step6ValidateDDR._measure_from_mask and evaluate_ddr.predicted_lungs.
+    """
+    try:
+        masks = dict(zip(["R", "L"], split_lungs(mask)))
+    except ValueError:
+        return {}, {}, {}
+    max_step = cliff_step_for(mask.shape[0], model_size=MODEL_SIZE, factor=cliff_factor)
+    lungs, curves = measure_masks(masks, max_rise_frac, max_step)
+    return masks, lungs, curves
 
 
 def analyze_frame(image, model, open_kernel=OPEN_KERNEL, max_rise_frac=RISE_FRACTION,

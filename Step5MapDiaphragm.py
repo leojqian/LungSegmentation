@@ -5,8 +5,8 @@
 #   python Step5MapDiaphragm.py --sample NAME   one image in a window
 #   python Step5MapDiaphragm.py --predicted     segment with the U-Net, not ManualMask
 #
-# I/O and orchestration only: geometry lives in geometry/diaphragm.py, drawing in
-# rendering/render.py.
+# I/O and orchestration only: geometry lives in lungmap/geometry/diaphragm.py, drawing in
+# lungmap/rendering/render.py.
 
 import argparse
 import glob
@@ -16,10 +16,10 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from geometry.diaphragm import RISE_FRACTION, apex_is_lower_bound, apex_of
-from rendering.render import THUMBS_PER_SHEET, contact_sheet, draw_overlay
-from segmentation.pipeline import analyze as analyze_image
-from segmentation.pipeline import measure_masks
+from lungmap.geometry.diaphragm import RISE_FRACTION, apex_is_lower_bound, apex_of
+from lungmap.rendering.render import THUMBS_PER_SHEET, contact_sheet, draw_overlay
+from lungmap.segmentation.pipeline import analyze as analyze_image
+from lungmap.segmentation.pipeline import measure_masks
 
 CXR_DIR = "MontgomerySet/CXR_png"
 LEFT_DIR = "MontgomerySet/ManualMask/leftMask"

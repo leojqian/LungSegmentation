@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lungmap"
+version = "0.1.0"
+description = "Lung landmarks and diaphragm points from chest X-ray DICOM, per frame"
+readme = "README.md"
+# keras 3.15 needs >=3.11; TensorFlow 2.21 ships wheels up to 3.13 only.
+requires-python = ">=3.11,<3.14"
+# Lower bounds are the versions this was tested with (see requirements.txt for
+# the exact pins of the development environment).
+dependencies = [
+    "tensorflow>=2.21",
+    "keras>=3.15",
+    "numpy>=2.0",
+    "opencv-python>=4.5.5",
+    "pydicom>=3.0",
+    "defusedxml>=0.7",
+    "tqdm>=4.60",
+    "certifi",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+lungmap = "lungmap.cli:main"
+
+# uv (which the double-click launchers use) installs exactly the versions this
+# was tested with; plain `pip install .` honours only the lower bounds above.
+[tool.uv]
+constraint-dependencies = [
+    "tensorflow==2.21.0",
+    "keras==3.15.1",
+    "numpy==2.4.6",
+    "opencv-python==5.0.0.93",
+    "pydicom==3.0.2",
+]
+
+[tool.setuptools.packages.find]
+include = ["lungmap*"]

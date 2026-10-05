@@ -17,8 +17,8 @@
 # full ~230-frame cine — LungArea_truth and DM-MODE_truth annotate different,
 # sparse frames (verified: 2 and 4 per case respectively, across all 20 cases).
 #
-# I/O and scoring only: DICOM/truth parsing lives in formats/dicom_io.py, lung
-# geometry in geometry/diaphragm.py and geometry/landmarks.py, unchanged.
+# I/O and scoring only: DICOM/truth parsing lives in lungmap/formats/dicom_io.py, lung
+# geometry in lungmap/geometry/diaphragm.py and lungmap/geometry/landmarks.py, unchanged.
 
 import argparse
 import csv
@@ -30,11 +30,11 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-from formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_dm_mode_truth_lines,
-                             parse_lung_area_truth, to_model_input, window_params)
-from geometry.diaphragm import dome_apex, split_lungs
-from segmentation.pipeline import (CLIFF_FACTOR, MODEL_SIZE, OPEN_KERNEL, cliff_step_for,
-                                   measure_masks, segment)
+from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_dm_mode_truth_lines,
+                                     parse_lung_area_truth, to_model_input, window_params)
+from lungmap.geometry.diaphragm import dome_apex, split_lungs
+from lungmap.segmentation.pipeline import (CLIFF_FACTOR, MODEL_SIZE, OPEN_KERNEL, cliff_step_for,
+                                           measure_masks, segment)
 
 DDR_DIR = "SampleDDR_August2026"
 IMAGES_PRES_DIR = os.path.join(DDR_DIR, "images_pres")

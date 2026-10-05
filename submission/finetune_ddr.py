@@ -5,7 +5,7 @@
 # Orientation: the DDR DICOMs' own Field of View Horizontal Flip tag was not
 # being applied by earlier code, so images were mirrored relative to true
 # anatomy (confirmed by direct visual check against the cardiac silhouette).
-# All image/mask loading here goes through formats/dicom_io.py, which now
+# All image/mask loading here goes through lungmap/formats/dicom_io.py, which now
 # applies that flip -- there is no DICOM-reading code in this file, so the
 # fix is inherited automatically rather than needing to be reapplied here.
 # (DM-MODE_truth's R/L point labels needed their own mirror-and-relabel fix
@@ -72,7 +72,8 @@ from sklearn.model_selection import KFold
 # invoke this as `python submission/finetune_ddr.py` from the repo root.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from formats.dicom_io import load_frames, parse_lung_area_truth, to_model_input, window_params
+from lungmap.formats.dicom_io import (load_frames, parse_lung_area_truth, to_model_input,
+                                     window_params)
 
 DDR_DIR = "SampleDDR_August2026"
 IMAGES_PRES_DIR = os.path.join(DDR_DIR, "images_pres")

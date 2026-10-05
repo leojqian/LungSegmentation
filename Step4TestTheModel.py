@@ -1,9 +1,9 @@
 import cv2
 import tensorflow as tf
 
-from geometry.diaphragm import apex_is_lower_bound
-from segmentation.pipeline import analyze
-from rendering.render import display_scale, draw_overlay
+from lungmap.geometry.diaphragm import apex_is_lower_bound
+from lungmap.segmentation.pipeline import analyze
+from lungmap.rendering.render import display_scale, draw_overlay
 
 MODEL_FILE = "best_model.h5"
 TEST_IMAGE = "MontgomerySet/CXR_png/MCUCXR_0035_0.png"

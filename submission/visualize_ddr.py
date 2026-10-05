@@ -10,10 +10,10 @@
 # predicted-point and truth-point logic here is not reimplemented, it is
 # imported from evaluate_ddr.py (predicted_lungs, segment) so the two files
 # can never drift apart: the dataset's own "center x-coordinate" convention
-# (see formats/dicom_io.py's parse_dm_mode_truth and geometry/diaphragm.py's
+# (see lungmap/formats/dicom_io.py's parse_dm_mode_truth and lungmap/geometry/diaphragm.py's
 # center_of), for both the truth point and the predicted point.
 #
-# Orientation: all image/mask/point loading goes through formats/dicom_io.py,
+# Orientation: all image/mask/point loading goes through lungmap/formats/dicom_io.py,
 # which applies the DICOM's Field of View Horizontal Flip and the matching
 # DM-MODE_truth point correction -- see that module for the full explanation.
 #
@@ -38,9 +38,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from evaluate_ddr import (MASK_OPEN_KERNEL, USE_DICOM_WINDOW_TAGS, find_cases,
                           predicted_lungs, segment)
-from formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_dm_mode_truth_lines,
-                             parse_lung_area_truth, to_model_input, window_params)
-from geometry.diaphragm import center_of
+from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_dm_mode_truth_lines,
+                                     parse_lung_area_truth, to_model_input, window_params)
+from lungmap.geometry.diaphragm import center_of
 
 FINETUNED_MODEL = "best_model_ddr_finetuned_phase3.h5"
 EVAL_DIR = "outputs/ddr_eval"

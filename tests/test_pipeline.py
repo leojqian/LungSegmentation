@@ -5,37 +5,10 @@
 import cv2
 import numpy as np
 import pytest
-from pydicom.dataset import FileDataset, FileMetaDataset
-from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
 
-from segmentation.pipeline import MODEL_SIZE, analyze, analyze_frame, load_image, measure_masks, segment
-
-
-def write_dicom(path, frames, photometric="MONOCHROME2", pixel_spacing=(0.4, 0.4),
-                window_center=None, window_width=None):
-    """frames: uint16 array (F, H, W). Minimal tags load_image actually reads."""
-    file_meta = FileMetaDataset()
-    file_meta.MediaStorageSOPClassUID = SecondaryCaptureImageStorage
-    file_meta.MediaStorageSOPInstanceUID = generate_uid()
-    file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
-
-    ds = FileDataset(path, {}, file_meta=file_meta, preamble=b"\x00" * 128)
-    ds.PhotometricInterpretation = photometric
-    ds.SamplesPerPixel = 1
-    ds.NumberOfFrames, ds.Rows, ds.Columns = frames.shape
-    ds.BitsAllocated = 16
-    ds.BitsStored = 16
-    ds.HighBit = 15
-    ds.PixelRepresentation = 0
-    ds.PixelSpacing = list(pixel_spacing)
-    if window_center is not None:
-        ds.WindowCenter = window_center
-    if window_width is not None:
-        ds.WindowWidth = window_width
-    ds.PixelData = frames.tobytes()
-    ds.is_little_endian = True
-    ds.is_implicit_VR = False
-    ds.save_as(path, enforce_file_format=True)
+from fakes import FakeModel, write_dicom
+from lungmap.segmentation.pipeline import (MODEL_SIZE, analyze, analyze_frame, load_image,
+                                           measure_combined, measure_masks, segment)
 
 
 def frame_with_marker(shape, marker_col, value=4000):
@@ -121,18 +94,6 @@ class TestLoadImage:
         # rather than crashing.
         image, _ = load_image(path, window=True)
         assert image.max() == pytest.approx(1.0)
-
-
-class FakeModel:
-    """Predicts two fixed, separated circular blobs at MODEL_SIZE resolution,
-    regardless of input — decouples pipeline-wiring tests from real trained
-    weights, following this codebase's synthetic-mask testing convention."""
-
-    def predict(self, batch, verbose=0):
-        canvas = np.zeros((MODEL_SIZE, MODEL_SIZE), np.float32)
-        cv2.circle(canvas, (70, 140), 50, 1.0, -1)
-        cv2.circle(canvas, (186, 140), 50, 1.0, -1)
-        return canvas[None, ..., None]
 
 
 class FakeModelWithIsland:
@@ -240,8 +201,8 @@ class TestMeasureMasks:
     def test_lung_points_match_a_direct_measure_lung_call(self):
         masks = {"R": lung_mask(cx=100)}
         lungs, _ = measure_masks(masks)
-        from geometry.diaphragm import measure_lung
-        from geometry.landmarks import contour_of
+        from lungmap.geometry.diaphragm import measure_lung
+        from lungmap.geometry.landmarks import contour_of
         expected = measure_lung(contour_of(masks["R"]))
         assert lungs["R"].top == expected.top
         assert lungs["R"].lower_left == expected.lower_left
@@ -258,3 +219,25 @@ class TestMeasureMasks:
         lungs, curves = measure_masks(masks)
         assert lungs["R"] is not None and curves["R"] is not None
         assert lungs["L"] is None and curves["L"] is None
+
+
+class TestMeasureCombined:
+    """A merged two-lung mask straight from segment() -> per-side geometry,
+    without raising when the mask doesn't hold two lungs — so a caller looping
+    over frames keeps that frame's mask instead of losing it to a ValueError."""
+
+    def test_splits_and_measures_both_sides(self):
+        mask = lung_mask(cx=100) | lung_mask(cx=300)
+        masks, lungs, curves = measure_combined(mask)
+        assert set(masks) == set(lungs) == set(curves) == {"R", "L"}
+        assert lungs["R"].top[0] < lungs["L"].top[0]
+
+    def test_matches_analyze_frames_measurement(self):
+        image = np.full((400, 400), 0.5, np.float32)
+        expected = analyze_frame(image, FakeModel())
+        _, lungs, _ = measure_combined(expected.mask)
+        assert lungs["R"].top == expected.lungs["R"].top
+        assert lungs["L"].lower_right == expected.lungs["L"].lower_right
+
+    def test_one_blob_returns_empty_dicts_instead_of_raising(self):
+        assert measure_combined(lung_mask(cx=100)) == ({}, {}, {})

@@ -13,8 +13,8 @@
 #                  the dataset's own definition: SampleDDR_August2026/README.md
 #                  says "the diaphragm point is defined as the center
 #                  x-coordinate" of the curve, not its highest point. The
-#                  predicted side is reduced the same way -- geometry.diaphragm
-#                  .center_of() on the model's own traced diaphragm curve, the
+#                  predicted side is reduced the same way -- lungmap.geometry
+#                  .diaphragm.center_of() on the model's own traced diaphragm curve, the
 #                  same curve measure_lung() derives its (different) "dome"
 #                  apex point from -- so both sides use one definition. An
 #                  earlier version of this file scored a peak-vs-peak
@@ -23,7 +23,7 @@
 #                  consistent but did not match what the dataset actually
 #                  calls "the diaphragm point."
 #
-# Orientation: all image/mask/point loading goes through formats/dicom_io.py,
+# Orientation: all image/mask/point loading goes through lungmap/formats/dicom_io.py,
 # which applies the DICOM's Field of View Horizontal Flip and the matching
 # DM-MODE_truth point correction -- see that module for the full explanation.
 # There is no DICOM- or XML-reading code in this file.
@@ -51,10 +51,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from finetune_ddr import (MASK_OPEN_KERNEL, MODEL_SIZE, USE_DICOM_WINDOW_TAGS,
                           find_cases, segment)
-from formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_lung_area_truth,
-                             to_model_input, window_params)
-from geometry.diaphragm import center_of, cliff_step_for, split_lungs
-from segmentation.pipeline import CLIFF_FACTOR, RISE_FRACTION, measure_masks
+from lungmap.formats.dicom_io import (load_frames, parse_dm_mode_truth, parse_lung_area_truth,
+                                     to_model_input, window_params)
+from lungmap.geometry.diaphragm import center_of, cliff_step_for, split_lungs
+from lungmap.segmentation.pipeline import CLIFF_FACTOR, RISE_FRACTION, measure_masks
 
 OUT_DIR = "outputs/ddr_eval"
 
