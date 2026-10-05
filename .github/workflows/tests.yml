@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: First run (installs uv, Python and the libraries)
         shell: cmd
-        run: lungmap.bat --help
+        run: call "Start lungmap (Windows).bat" --help
       - name: Make a synthetic 3-frame DICOM
         shell: cmd
         run: |
@@ -38,7 +38,7 @@ jobs:
           uv run --locked python -c "import sys, numpy as np; sys.path.insert(0, 'tests'); from fakes import write_dicom; write_dicom('ci case.dcm', np.random.default_rng(0).integers(0, 4000, (3, 256, 256)).astype(np.uint16), FrameTime=66)"
       - name: Run the launcher on it (downloads the model from the release)
         shell: cmd
-        run: lungmap.bat "ci case.dcm"
+        run: call "Start lungmap (Windows).bat" "ci case.dcm"
       - name: Check the three outputs exist
         shell: pwsh
         run: |
@@ -51,14 +51,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: First run (installs uv, Python and the libraries)
-        run: ./lungmap.command --help < /dev/null
+        run: ./"Start lungmap (Mac).command" --help < /dev/null
       - name: Make a synthetic 3-frame DICOM
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           export UV_PROJECT_ENVIRONMENT="$HOME/Library/Application Support/lungmap/venv"
           uv run --locked python -c "import sys, numpy as np; sys.path.insert(0, 'tests'); from fakes import write_dicom; write_dicom('ci case.dcm', np.random.default_rng(0).integers(0, 4000, (3, 256, 256)).astype(np.uint16), FrameTime=66)"
       - name: Run the launcher on it (downloads the model from the release)
-        run: ./lungmap.command "ci case.dcm" < /dev/null
+        run: ./"Start lungmap (Mac).command" "ci case.dcm" < /dev/null
       - name: Check the three outputs exist
         run: |
           for f in "ci case_points.csv" "ci case_overlay.dcm" "ci case_overlay.mp4"; do

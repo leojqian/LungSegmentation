@@ -7,9 +7,11 @@ everything drawn on.
 
 ## Use it on Windows
 
+**New to this? Follow the step-by-step [Windows guide](WINDOWS-GUIDE.md).** The short version:
+
 1. Click the green **Code** button above, then **Download ZIP**. Unzip it
    somewhere permanent, such as Documents.
-2. Drag a DICOM file, or a folder of them, onto **`lungmap.bat`**. Or
+2. Drag a DICOM file, or a folder of them, onto **Start lungmap (Windows)**. Or
    double-click it and drag the scan into the window that opens.
    - If a blue "Windows protected your PC" box appears, click **More info**,
      then **Run anyway**.
@@ -20,7 +22,7 @@ everything drawn on.
 
 ## Use it on a Mac (Apple silicon)
 
-Same as Windows, but use **`lungmap.command`**. If macOS blocks it the first
+Same as Windows, but use **Start lungmap (Mac)**. If macOS blocks it the first
 time, go to **System Settings > Privacy & Security** and click **Open Anyway**.
 
 ## What you get
@@ -62,7 +64,8 @@ average.
 
 | path | what it is | in the package? |
 |---|---|---|
-| `lungmap.bat`, `lungmap.command` | double-click launchers (Windows, Mac) | runs it |
+| `Start lungmap (Windows).bat`, `Start lungmap (Mac).command` | double-click launchers | runs it |
+| `WINDOWS-GUIDE.md` | step-by-step guide for Windows users | no |
 | `lungmap/` | **the lungmap package**: everything the tool runs | **yes** |
 | `tests/` | tests for `lungmap/` | no |
 | `research/` | the scripts that trained and evaluated the model ([research/README.md](research/README.md)) | no |
